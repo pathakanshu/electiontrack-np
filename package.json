@@ -1,0 +1,21 @@
+{
+  "name": "electiontrack-np",
+  "version": "1.0.0",
+  "description": "A live tracker for Nepal’s elections with a clean and intuitive UI.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pathakanshu/electiontrack-np.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/pathakanshu/electiontrack-np/issues"
+  },
+  "homepage": "https://github.com/pathakanshu/electiontrack-np#readme"
+}
