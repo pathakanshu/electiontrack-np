@@ -15,54 +15,77 @@ async function fetch_provinces(): Promise<Province[]> {
 }
 
 async function fetch_districts(provinces: Province[]): Promise<District[]> {
-  const res = await fetch(
-    `https://result.election.gov.np/JSONFiles/JSONMap/geojson/District/STATE_C_${provinces}.json`
-  );
-  const data = await res.json();
+  const districts = [];
+  for (let province of provinces) {
+    const res = await fetch(
+      `https://result.election.gov.np/JSONFiles/JSONMap/geojson/District/STATE_C_${province.id}.json`
+    );
+    const data = await res.json();
 
-  return data.map((d: any) => ({
-    id: d.id,
-    name_en: d.name_en,
-    name_np: d.name_np,
-    geometry: d.geometry,
-  }));
+    districts.push(
+      ...data.features.map((d: any) => ({
+        id: d['properties']['DCODE'],
+        province: d['properties']['STATE_C'],
+        name_en: d['properties']['DISTRICT_N'],
+        name_np: d['properties']['DISTRICT_NP'],
+        coordinates: d['geometry']['coordinates'],
+      }))
+    );
+  }
+  return districts;
 }
 
 async function fetch_constituencies(
   districts: District[]
 ): Promise<Constituency[]> {
-  const res = await fetch(
-    `https://result.election.gov.np/JSONFiles/JSONMap/geojson/Constituency/${districts[0].id}.json`
-  );
-  const data = await res.json();
+  const constituencies = [];
+  for (let district of districts) {
+    const res = await fetch(
+      `https://result.election.gov.np/JSONFiles/JSONMap/geojson/Const/dist-${district.id}.json`
+    );
 
-  return data.map((c: any) => ({
-    id: c.id,
-    name_en: c.name_en,
-    name_np: c.name_np,
-    geometry: c.geometry,
-  }));
+    const data = await res.json();
+
+    constituencies.push(
+      ...data.features.map((c: any) => ({
+        id: c['properties']['F_CONST'],
+        district: district.id,
+        province: district.province,
+        coordinates: c['geometry']['coordinates'],
+      }))
+    );
+  }
+  return constituencies;
 }
 
-async function fetch_candidates(
+async function fetch_HOR_candidates(
   constituencies: Constituency[]
 ): Promise<Candidate[]> {
-  const res = await fetch('');
-  const data = await res.json();
+  const candidates = [];
+  for (let constituency of constituencies) {
+    const res = await fetch(
+      `https://result.election.gov.np/JSONFiles/Election2079/HOR/FPTP/HOR-${constituency.district}-${constituency.id}.json`
+    );
+    const data = await res.json();
 
-  return data.map((c: any) => ({
-    id: c.id,
-    name_en: c.name_en,
-    name_np: c.name_np,
-    geometry: c.geometry,
-  }));
+    candidates.push(
+      ...data.map((c: any) => ({
+        id: c['CandidateID'],
+        name_en: null,
+        name_np: c['CandidateName'],
+        age: c['Age'],
+        party: c['PoliticalPartyName'],
+        gender: c['Gender'],
+        qualification: c['QUALIFICATION'],
+        remarks: c['REMARKS'],
+        votes: c['TotalVotesReceived'],
+        constituency: c['SCConstID'],
+        district: constituency.district,
+        province: constituency.province,
+        symbol_id: c['SymbolID'],
+        citizenship_district: c['CTZDIST'],
+      }))
+    );
+  }
+  return candidates;
 }
-
-// Test code - add this at the bottom
-fetch_provinces()
-  .then((provinces) => {
-    console.dir(provinces);
-
-    console.log('Number of provinces:', provinces.length);
-  })
-  .catch((error) => console.error('Error:', error));
