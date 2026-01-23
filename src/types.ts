@@ -7,6 +7,7 @@ export type Province = {
 
 export type District = {
   id: number;
+  province: number;
   name_en: string | null;
   name_np: string;
   coordinates: number[][][];
@@ -14,6 +15,8 @@ export type District = {
 
 export type Constituency = {
   id: number;
+  district: number;
+  province: number;
   name_en: string;
   name_np: string;
   coordinates: number[][][];
