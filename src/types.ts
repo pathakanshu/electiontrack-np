@@ -1,31 +1,22 @@
 export type Province = {
   id: number;
-  name_en: string;
+  name_en: string | null;
   name_np: string;
-  geometry: {
-    type: string;
-    coordinates: number[][][];
-  };
+  coordinates: number[][][];
 };
 
 export type District = {
   id: number;
-  name_en: string;
+  name_en: string | null;
   name_np: string;
-  geometry: {
-    type: string;
-    coordinates: number[][][];
-  };
+  coordinates: number[][][];
 };
 
 export type Constituency = {
   id: number;
   name_en: string;
   name_np: string;
-  geometry: {
-    type: string;
-    coordinates: number[][][];
-  };
+  coordinates: number[][][];
 };
 
 export type Candidate = {
