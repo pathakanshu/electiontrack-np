@@ -1,6 +1,6 @@
 import { Province, District, Constituency, Candidate } from '../src/types';
 
-async function fetch_provinces(): Promise<Province[]> {
+export async function fetch_provinces(): Promise<Province[]> {
   const res = await fetch(
     'https://result.election.gov.np/JSONFiles/JSONMap/geojson/Province.json'
   );
@@ -14,7 +14,8 @@ async function fetch_provinces(): Promise<Province[]> {
   }));
 }
 
-async function fetch_districts(provinces: Province[]): Promise<District[]> {
+export async function fetch_districts(provinces: Province[]): Promise<District[]> {
+  
   const districts = [];
   for (let province of provinces) {
     const res = await fetch(
@@ -35,9 +36,10 @@ async function fetch_districts(provinces: Province[]): Promise<District[]> {
   return districts;
 }
 
-async function fetch_constituencies(
+export async function fetch_constituencies(
   districts: District[]
 ): Promise<Constituency[]> {
+  
   const constituencies = [];
   for (let district of districts) {
     const res = await fetch(
@@ -58,9 +60,10 @@ async function fetch_constituencies(
   return constituencies;
 }
 
-async function fetch_HOR_candidates(
+export async function fetch_HOR_candidates(
   constituencies: Constituency[]
 ): Promise<Candidate[]> {
+  
   const candidates = [];
   for (let constituency of constituencies) {
     const res = await fetch(
@@ -84,6 +87,7 @@ async function fetch_HOR_candidates(
         province: constituency.province,
         symbol_id: c['SymbolID'],
         citizenship_district: c['CTZDIST'],
+        experience: c['EXPERIENCE'] 
       }))
     );
   }
