@@ -1,5 +1,9 @@
 import { Position } from 'geojson';
 
+//
+// Province Types
+//
+
 export type Province = {
   province_id: number;
   name_en: string | null;
@@ -8,48 +12,7 @@ export type Province = {
   geometry_coords: Position[][][];
 };
 
-export type District = {
-  district_id: number;
-  province_id: number;
-  name_en: string | null;
-  name_np: string;
-  geometry_coords: Position[][][];
-  constituency_ids: string[];
-};
-
-export type Constituency = {
-  constituency_id: string;
-  district_id: number;
-  sub_id: number;
-  province_id: number;
-  conservation_area: boolean;
-  geometry_coords: Position[][][];
-};
-
-export type Candidate = {
-  id: number;
-  name_en: string | null;
-  name_np: string;
-  age: number;
-  party: string;
-  gender: string;
-  qualification: string;
-  remarks: string;
-  votes: number;
-  constituency: number;
-  district: number;
-  province: number;
-  symbol_id: number;
-  experience: string;
-};
-
-export type ElectionData = {
-  provinces: Province[];
-  districts: District[];
-  constituencies: Constituency[];
-  candidates: Candidate[];
-};
-
+// raw json from fetch
 export type ProvinceFeature = {
   type: string;
   properties: {
@@ -64,6 +27,20 @@ export type ProvinceFeature = {
   };
 };
 
+//
+// District Types
+//
+
+export type District = {
+  district_id: number;
+  province_id: number;
+  name_en: string | null;
+  name_np: string;
+  geometry_coords: Position[][][];
+  constituency_ids: string[];
+};
+
+// raw json from fetch
 export type DistrictFeature = {
   type: string;
   properties: {
@@ -79,6 +56,27 @@ export type DistrictFeature = {
   };
 };
 
+// raw json from fetch
+export type DistrictIdentifier = {
+  id: number;
+  name: string;
+  parentId: number;
+};
+
+//
+// Constituency Types
+//
+
+export type Constituency = {
+  constituency_id: string;
+  district_id: number;
+  sub_id: number;
+  province_id: number;
+  conservation_area: boolean;
+  geometry_coords: Position[][][];
+};
+
+// raw json from fetch
 export type ConstituencyFeature = {
   type: string;
   properties: {
@@ -97,13 +95,65 @@ export type ConstituencyFeature = {
   };
 };
 
-export type DistrictIdentifier = {
-  id: number;
-  name: string;
-  parentId: number;
-};
-
+// raw json from fetch
 export type ConstituencyIdentifier = {
   distId: number;
   consts: number;
+};
+
+//
+// Candidate Types
+//
+
+export type Candidate = {
+  candidate_id: number;
+  name_en: string | null;
+  name_np: string;
+  age: number;
+  gender: string;
+  image_url: string;
+  constituency_id: string;
+  district: number;
+  province: number;
+  experience: string;
+  qualification: string;
+  party: string;
+  symbol_id: number;
+  votes: number;
+  elected: boolean | null;
+};
+
+// raw json from fetch
+export type CandidateIdentifier = {
+  CandidateName: string;
+  Gender: string;
+  Age: number;
+  PartyID: number;
+  SymbolID: number;
+  SymbolName: string;
+  CandidateID: number;
+  StateName: string;
+  PoliticalPartyName: string;
+  ElectionPost: string | null;
+  DistrictCd: number;
+  DistrictName: string;
+  State: number;
+  SCConstID: string;
+  CenterConstID: number | null;
+  SerialNo: number;
+  TotalVoteReceived: number;
+  CastedVote: number;
+  TotalVoters: number;
+  Rank: string;
+  Remarks: string | null;
+  Samudaya: string | null;
+  DOB: string;
+  CTZDIST: string;
+  FATHER_NAME: string;
+  SPOUCE_NAME: string;
+  QUALIFICATION: string;
+  EXPERIENCE: string;
+  OTHERDETAILS: string;
+  NAMEOFINST: string;
+  ADDRESS: string;
 };
