@@ -7,7 +7,7 @@ import {
   fetchProvinces,
   fetchDistricts,
   fetchConstituencies,
-  fetchAllCandidates,
+  fetchCandidates,
 } from '../../api/index';
 
 import {
@@ -19,6 +19,8 @@ import {
   ConstituencyIdentifier,
   Constituency,
   ConstituencyFeature,
+  Candidate,
+  CandidateIdentifier,
 } from '../types';
 
 export async function bundleProvinces(): Promise<Province[]> {
@@ -123,6 +125,51 @@ export async function bundleConstituencies(
 
     bundled.push(constituency);
   });
+
+  return bundled;
+}
+
+export async function bundleCandidates(): Promise<Candidate[]> {
+  const raw_candidates: CandidateIdentifier[] = await fetchCandidates();
+  let image_url = '';
+  let bundled: Candidate[] = [];
+
+  for (const candidate of raw_candidates) {
+    const candidate_id = candidate.CandidateID;
+    const constituency_id = candidate.SCConstID;
+    const name_np = candidate.CandidateName;
+    const party = candidate.PoliticalPartyName;
+    const gender = candidate.Gender;
+    const age = candidate.Age;
+    const education = candidate.QUALIFICATION;
+    const experience = candidate.EXPERIENCE;
+    const image = image_url + candidate.CandidateID;
+    const elected = candidate.Remarks ? true : false;
+    const votes = candidate.TotalVoteReceived;
+    const district = candidate.DistrictCd;
+    const province = candidate.State;
+    const symbolid = candidate.SymbolID;
+
+    const a_candidate: Candidate = {
+      candidate_id: candidate_id,
+      name_en: null,
+      name_np: name_np,
+      age: age,
+      gender: gender,
+      image_url: image,
+      constituency_id: constituency_id,
+      district: district,
+      province: province,
+      experience: experience,
+      qualification: education,
+      party: party,
+      symbol_id: symbolid,
+      votes: votes,
+      elected: elected,
+    };
+
+    bundled.push(a_candidate);
+  }
 
   return bundled;
 }
