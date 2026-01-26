@@ -28,7 +28,6 @@ export async function bundleProvinces(): Promise<Province[]> {
     'https://result.election.gov.np/JSONFiles/Election2079/Local/Lookup/districts.json'
   );
   const district_identifiers: DistrictIdentifier[] = await fetch_DI.json();
-
   const bundled: Province[] = [];
 
   raw_provinces.features.map((feature: ProvinceFeature) => {
@@ -127,5 +126,3 @@ export async function bundleConstituencies(
 
   return bundled;
 }
-
-
