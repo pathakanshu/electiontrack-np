@@ -4,7 +4,8 @@
   "description": "A live tracker for Nepal’s elections with a clean and intuitive UI.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "test": "vitest"
   },
   "repository": {
     "type": "git",
@@ -19,6 +20,12 @@
   },
   "homepage": "https://github.com/pathakanshu/electiontrack-np#readme",
   "devDependencies": {
-    "typescript": "^5.9.3"
+    "@types/maplibre-gl": "^1.13.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "maplibre-gl": "^5.16.0"
   }
 }
