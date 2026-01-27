@@ -23,7 +23,7 @@ export async function fetchConstituencies(districtId: number) {
 }
 
 // This should be used as the primary function to fetch all candidate data
-export async function fetchAllCandidates() {
+export async function fetchCandidates() {
   const res = await fetch(
     'https://result.election.gov.np/JSONFiles/ElectionResultCentral2082.txt'
   );
