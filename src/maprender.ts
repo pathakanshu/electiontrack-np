@@ -1,9 +1,30 @@
 import { Map } from 'maplibre-gl';
-import { Position } from 'geojson';
+import { Province, District, Constituency } from './types';
+
+const background_color = '#ffffff';
+
+const province_border_color = '#ffffff';
+const province_fill_color = '#000000';
+const province_fill_opacity = 0;
+const province_border_width = 2;
+const province_border_opacity = 1;
+
+// district is not used in HOR elections
+const district_border_color = '#ffffff';
+const district_fill_color = '#000000';
+const district_fill_opacity = 1;
+const district_border_width = 1;
+const district_border_opacity = 1;
+
+const constituency_border_color = '#ffffff';
+const constituency_fill_color = '#F00000';
+const constituency_fill_opacity = 1;
+const constituency_border_width = 1;
+const constituency_border_opacity = 1;
 
 export function createMap(containerID: string): Map {
   const map = new Map({
-    container: 'map',
+    container: containerID,
     center: [84.124, 28.394],
     zoom: 6.5,
     style: {
@@ -14,7 +35,7 @@ export function createMap(containerID: string): Map {
           id: 'background',
           type: 'background',
           paint: {
-            'background-color': '#f5f5f5',
+            'background-color': background_color,
           },
         },
       ],
@@ -25,29 +46,10 @@ export function createMap(containerID: string): Map {
   return map;
 }
 
-export function addProvincesLayer(
-  map: Map,
-  provinces: {
-    id: number;
-    name_np: string;
-    name_en: string | null;
-    coordinates: Position[][][];
-  }[]
-) {
+export function addProvincesLayer(map: Map, provinces: Province[]) {
   const geojson = {
     type: 'FeatureCollection' as const,
-    features: provinces.map((province) => ({
-      type: 'Feature' as const,
-      properties: {
-        id: province.id,
-        name_np: province.name_np,
-        name_en: province.name_en,
-      },
-      geometry: {
-        type: 'MultiPolygon' as const,
-        coordinates: province.coordinates,
-      },
-    })),
+    features: provinces,
   };
 
   map.addSource('provinces', {
@@ -60,8 +62,8 @@ export function addProvincesLayer(
     type: 'fill',
     source: 'provinces',
     paint: {
-      'fill-color': '#ffffff',
-      'fill-opacity': 0.1,
+      'fill-color': province_fill_color,
+      'fill-opacity': province_fill_opacity,
     },
   });
 
@@ -70,37 +72,17 @@ export function addProvincesLayer(
     type: 'line',
     source: 'provinces',
     paint: {
-      'line-color': '#000000',
-      'line-width': 1,
+      'line-color': province_border_color,
+      'line-width': province_border_width,
+      'line-opacity': province_border_opacity,
     },
   });
 }
 
-export function addDistrictsLayer(
-  map: Map,
-  districts: {
-    id: number;
-    name_np: string;
-    name_en: string | null;
-    province: number;
-    coordinates: Position[][][];
-  }[]
-) {
+export function addDistrictsLayer(map: Map, districts: District[]) {
   const geojson = {
     type: 'FeatureCollection' as const,
-    features: districts.map((district) => ({
-      type: 'Feature' as const,
-      properties: {
-        id: district.id,
-        name_np: district.name_np,
-        name_en: district.name_en,
-        province: district.province,
-      },
-      geometry: {
-        type: 'MultiPolygon' as const,
-        coordinates: district.coordinates,
-      },
-    })),
+    features: districts,
   };
 
   map.addSource('districts', {
@@ -113,8 +95,8 @@ export function addDistrictsLayer(
     type: 'fill',
     source: 'districts',
     paint: {
-      'fill-color': '#ffffff',
-      'fill-opacity': 0.05,
+      'fill-color': district_fill_color,
+      'fill-opacity': district_fill_opacity,
     },
   });
 
@@ -123,8 +105,42 @@ export function addDistrictsLayer(
     type: 'line',
     source: 'districts',
     paint: {
-      'line-color': '#ff0000',
-      'line-width': 0.5,
+      'line-color': district_border_color,
+      'line-width': district_border_width,
+      'line-opacity': district_border_opacity,
+    },
+  });
+}
+
+export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
+  const geojson = {
+    type: 'FeatureCollection' as const,
+    features: constituencies,
+  };
+
+  map.addSource('constituencies', {
+    type: 'geojson',
+    data: geojson,
+  });
+
+  map.addLayer({
+    id: 'constituencies-fill',
+    type: 'fill',
+    source: 'constituencies',
+    paint: {
+      'fill-color': constituency_fill_color,
+      'fill-opacity': constituency_fill_opacity,
+    },
+  });
+
+  map.addLayer({
+    id: 'constituencies-border',
+    type: 'line',
+    source: 'constituencies',
+    paint: {
+      'line-color': constituency_border_color,
+      'line-width': constituency_border_width,
+      'line-opacity': constituency_border_opacity,
     },
   });
 }
