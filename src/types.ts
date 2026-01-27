@@ -5,11 +5,17 @@ import { Position } from 'geojson';
 //
 
 export type Province = {
-  province_id: number;
-  name_en: string | null;
-  name_np: string;
-  district_ids: number[];
-  geometry_coords: Position[][][];
+  type: 'Feature';
+  properties: {
+    province_id: number;
+    name_en: string | null;
+    name_np: string;
+    district_ids: number[];
+  };
+  geometry: {
+    type: 'MultiPolygon';
+    coordinates: Position[][][];
+  };
 };
 
 // raw json from fetch
@@ -32,12 +38,18 @@ export type ProvinceFeature = {
 //
 
 export type District = {
-  district_id: number;
-  province_id: number;
-  name_en: string | null;
-  name_np: string;
-  geometry_coords: Position[][][];
-  constituency_ids: string[];
+  type: 'Feature';
+  properties: {
+    district_id: number;
+    province_id: number;
+    name_en: string | null;
+    name_np: string;
+    constituency_ids: string[];
+  };
+  geometry: {
+    type: 'MultiPolygon';
+    coordinates: Position[][][];
+  };
 };
 
 // raw json from fetch
@@ -68,12 +80,18 @@ export type DistrictIdentifier = {
 //
 
 export type Constituency = {
-  constituency_id: string;
-  district_id: number;
-  sub_id: number;
-  province_id: number;
-  conservation_area: boolean;
-  geometry_coords: Position[][][];
+  type: 'Feature';
+  properties: {
+    constituency_id: string;
+    district_id: number;
+    sub_id: number;
+    province_id: number;
+    conservation_area: boolean;
+  };
+  geometry: {
+    type: 'MultiPolygon';
+    coordinates: Position[][][];
+  };
 };
 
 // raw json from fetch
