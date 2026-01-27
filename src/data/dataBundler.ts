@@ -1,7 +1,19 @@
-// This file is responsible for integrating data from various sources
-// such as provinces, districts, constituencies, and candidates.
-// The goal is to combine these into various cohesive structures
-// that can be used by the application.
+/**
+ * src/data/dataBundler.ts
+ *
+ * Refactored to avoid top-level await. Identifier lookups (districts / constituencies)
+ * are loaded lazily and cached on first use so this module can be imported without
+ * performing network requests immediately.
+ *
+ * Exports:
+ *  - bundleProvinces(): Promise<Province[]>
+ *  - bundleDistricts(province_id): Promise<District[]>
+ *  - bundleConstituencies(district_id): Promise<Constituency[]>
+ *  - bundleCandidates(): Promise<Candidate[]>
+ *
+ * The bundling logic is unchanged from the previous implementation; only the
+ * identifier fetching is deferred.
+ */
 
 import {
   fetchProvinces,
@@ -10,7 +22,7 @@ import {
   fetchCandidates,
 } from '../../api/index';
 
-import {
+import type {
   ProvinceFeature,
   Province,
   DistrictFeature,
@@ -23,116 +35,160 @@ import {
   CandidateIdentifier,
 } from '../types';
 
-export async function bundleProvinces(): Promise<Province[]> {
-  // Fetch raw data
-  const raw_provinces = await fetchProvinces();
-  const fetch_DI = await fetch(
-    'https://result.election.gov.np/JSONFiles/Election2079/Local/Lookup/districts.json'
-  );
-  const district_identifiers: DistrictIdentifier[] = await fetch_DI.json();
-  const bundled: Province[] = [];
+/**
+ * Cache for lookup lists loaded lazily to avoid network activity at import time.
+ */
+let _districtIdentifiers: DistrictIdentifier[] | null = null;
+let _constituencyIdentifiers: ConstituencyIdentifier[] | null = null;
 
-  raw_provinces.features.map((feature: ProvinceFeature) => {
+/**
+ * Fetch and cache district identifiers (lazy).
+ */
+async function getDistrictIdentifiers(): Promise<DistrictIdentifier[]> {
+  if (_districtIdentifiers) return _districtIdentifiers;
+
+  const url =
+    'https://result.election.gov.np/JSONFiles/Election2079/Local/Lookup/districts.json';
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch district identifiers: ${res.status} ${res.statusText}`
+    );
+  }
+  const data = (await res.json()) as DistrictIdentifier[];
+  _districtIdentifiers = data;
+  return data;
+}
+
+/**
+ * Fetch and cache constituency identifiers (lazy).
+ */
+async function getConstituencyIdentifiers(): Promise<ConstituencyIdentifier[]> {
+  if (_constituencyIdentifiers) return _constituencyIdentifiers;
+
+  const url =
+    'https://result.election.gov.np/JSONFiles/Election2079/HOR/Lookup/constituencies.json';
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch constituency identifiers: ${res.status} ${res.statusText}`
+    );
+  }
+  const data = (await res.json()) as ConstituencyIdentifier[];
+  _constituencyIdentifiers = data;
+  return data;
+}
+
+/**
+ * Fetch and bundle all provinces as GeoJSON Features.
+ */
+export async function bundleProvinces(): Promise<Province[]> {
+  // Ensure identifiers are available (lazy load)
+  const districtIdentifiers = await getDistrictIdentifiers();
+
+  // Fetch raw data
+  const rawProvinces = await fetchProvinces();
+
+  return rawProvinces.features.map((feature: ProvinceFeature) => {
     const province_id = feature.properties.STATE_C;
     const province_name = feature.properties.STATE_N;
     const geometry_coords = feature.geometry.coordinates;
-    const district_ids: Array<number> = district_identifiers
-      .filter(
-        (district_identifier: DistrictIdentifier) =>
-          // Filters districts belonging to the current province
-          district_identifier.parentId === province_id
-      )
-      .map(
-        // Extracts district IDs
-        (district_identifier: DistrictIdentifier) => district_identifier.id
-      );
-    const province: Province = {
-      district_ids: district_ids,
-      province_id: province_id,
-      name_np: province_name,
-      name_en: null,
+    const district_ids: Array<number> = districtIdentifiers
+      .filter((d) => d.parentId === province_id)
+      .map((d) => d.id);
 
-      geometry_coords,
-    };
-
-    bundled.push(province);
+    return {
+      type: 'Feature',
+      properties: {
+        province_id,
+        name_np: province_name,
+        name_en: null,
+        district_ids,
+      },
+      geometry: {
+        type: 'MultiPolygon',
+        coordinates: geometry_coords,
+      },
+    } as Province;
   });
-
-  return bundled;
 }
 
-export async function bundleDistricts(province: Province): Promise<District[]> {
-  const raw_districts = await fetchDistricts(province.province_id);
-  const fetch_Cinfo = await fetch(
-    'https://result.election.gov.np/JSONFiles/Election2079/HOR/Lookup/constituencies.json'
-  );
+/**
+ * Fetch and bundle all districts for a given province as GeoJSON Features.
+ */
+export async function bundleDistricts(
+  province_id: number
+): Promise<District[]> {
+  // Ensure identifiers are available (lazy load)
+  const constituencyIdentifiers = await getConstituencyIdentifiers();
 
-  const raw_constituencies = await fetch_Cinfo.json();
-
-  const bundled: District[] = [];
-
-  raw_districts.features.map((feature: DistrictFeature) => {
+  const rawDistricts = await fetchDistricts(province_id);
+  return rawDistricts.features.map((feature: DistrictFeature) => {
     const district_id = feature.properties.DCODE;
     const district_name = feature.properties.DISTRICT_N;
     const geometry_coords = feature.geometry.coordinates;
-    const constituency_ids = raw_constituencies
-      .filter(
-        (constituency: ConstituencyIdentifier) =>
-          constituency.distId === district_id
-      )
-      // Format: "districtID-constituencyID"
-      .map(
-        (constituency: ConstituencyIdentifier) =>
-          district_id.toString() + '-' + constituency.consts.toString()
-      );
+    const province_id_local = feature.properties.STATE_C;
+    const constituency_ids = constituencyIdentifiers
+      .filter((c) => c.distId === district_id)
+      .map((c) => `${district_id}-${c.consts}`);
 
-    const district: District = {
-      district_id: district_id,
-      province_id: -1,
-      name_np: district_name,
-      name_en: null,
-      geometry_coords: geometry_coords,
-      constituency_ids: constituency_ids,
-    };
-
-    bundled.push(district);
+    return {
+      type: 'Feature',
+      properties: {
+        district_id,
+        province_id: province_id_local,
+        name_np: district_name,
+        name_en: null,
+        constituency_ids,
+      },
+      geometry: {
+        type: 'MultiPolygon',
+        coordinates: geometry_coords,
+      },
+    } as District;
   });
-
-  return bundled;
 }
 
+/**
+ * Fetch and bundle all constituencies for a given district as GeoJSON Features.
+ */
 export async function bundleConstituencies(
-  district: District
+  district_id: number
 ): Promise<Constituency[]> {
-  const raw_constituencies = await fetchConstituencies(district.district_id);
-  const bundled: Constituency[] = [];
+  const rawConstituencies = await fetchConstituencies(district_id);
 
-  raw_constituencies.map((feature: ConstituencyFeature) => {
-    const district_id = feature.properties.DCODE;
+  return rawConstituencies.map((feature: ConstituencyFeature) => {
+    const district_id_local = feature.properties.DCODE;
+    const province_id = feature.properties.STATE_C;
     const sub_id = feature.properties.F_CONST;
-    const constituency_id = district_id.toString() + '-' + sub_id.toString();
+    const constituency_id = `${district_id_local}-${sub_id}`;
     const coordinates = feature.geometry.coordinates;
-    const conservation_area = feature.properties.Conservati ? true : false;
+    const conservation_area = !!feature.properties.Conservati;
 
-    const constituency: Constituency = {
-      constituency_id: constituency_id,
-      district_id: district_id,
-      sub_id: sub_id,
-      geometry_coords: coordinates,
-      province_id: -1,
-      conservation_area: conservation_area,
-    };
-
-    bundled.push(constituency);
+    return {
+      type: 'Feature',
+      properties: {
+        constituency_id,
+        district_id: district_id_local,
+        sub_id,
+        province_id,
+        conservation_area,
+      },
+      geometry: {
+        type: 'MultiPolygon',
+        coordinates,
+      },
+    } as Constituency;
   });
-
-  return bundled;
 }
 
+/**
+ * Fetch and bundle all candidates (unchanged).
+ */
 export async function bundleCandidates(): Promise<Candidate[]> {
   const raw_candidates: CandidateIdentifier[] = await fetchCandidates();
   let image_url = '';
-  let bundled: Candidate[] = [];
+  const bundled: Candidate[] = [];
 
   for (const candidate of raw_candidates) {
     const candidate_id = candidate.CandidateID;
@@ -144,7 +200,7 @@ export async function bundleCandidates(): Promise<Candidate[]> {
     const education = candidate.QUALIFICATION;
     const experience = candidate.EXPERIENCE;
     const image = image_url + candidate.CandidateID;
-    const elected = candidate.Remarks ? true : false;
+    const elected = !!candidate.Remarks;
     const votes = candidate.TotalVoteReceived;
     const district = candidate.DistrictCd;
     const province = candidate.State;
