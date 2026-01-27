@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "test": "vitest"
+    "test": "vitest",
+    "generate-geometry": "ts-node src/scripts/generate-geometry.ts",
+    "build": "npm run generate-geometry && vite build"
   },
   "repository": {
     "type": "git",
@@ -21,11 +23,16 @@
   "homepage": "https://github.com/pathakanshu/electiontrack-np#readme",
   "devDependencies": {
     "@types/maplibre-gl": "^1.13.2",
+    "@types/node": "^25.0.10",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "ts-node": "^10.9.1"
   },
   "dependencies": {
-    "maplibre-gl": "^5.16.0"
+    "maplibre-gl": "^5.16.0",
+    "topojson-server": "^3.0.1",
+    "topojson-simplify": "^3.0.3",
+    "topojson-client": "^3.1.0"
   }
 }
