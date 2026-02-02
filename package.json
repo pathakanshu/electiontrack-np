@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest",
-    "generate-geometry": "ts-node src/scripts/generate-geometry.ts",
+    "generate-geometry": "npx tsx src/scripts/generate-geometry.ts",
     "build": "npm run generate-geometry && vite build"
   },
   "repository": {
@@ -27,7 +27,7 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.18",
-    "ts-node": "^10.9.1"
+    "tsx": "^4.19.0"
   },
   "dependencies": {
     "maplibre-gl": "^5.16.0",
