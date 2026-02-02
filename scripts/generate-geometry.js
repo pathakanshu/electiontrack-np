@@ -53,13 +53,18 @@ async function fetchJson(url) {
   const res = await f(url);
   if (!res.ok) {
     const body = await res.text().catch(() => '<no body>');
-    throw new Error(`Request failed ${res.status} ${res.statusText} for ${url}\n${body.slice(0, 500)}`);
+    throw new Error(
+      `Request failed ${res.status} ${res.statusText} for ${url}\n${body.slice(0, 500)}`
+    );
   }
-  const ct = res.headers && res.headers.get ? res.headers.get('content-type') : '';
+  const ct =
+    res.headers && res.headers.get ? res.headers.get('content-type') : '';
   if (ct && ct.includes('text/html')) {
     // Common situation: proxy or error returning HTML; include small preview
     const text = await res.text();
-    throw new Error(`Expected JSON but got HTML for ${url}: ${text.slice(0, 300)}`);
+    throw new Error(
+      `Expected JSON but got HTML for ${url}: ${text.slice(0, 300)}`
+    );
   }
   return res.json();
 }
@@ -72,7 +77,9 @@ function normalizeFeatureCollection(payloadOrArray) {
     return payloadOrArray.features;
   }
   // Unknown shape
-  throw new Error('Unexpected GeoJSON payload shape (not FeatureCollection or array)');
+  throw new Error(
+    'Unexpected GeoJSON payload shape (not FeatureCollection or array)'
+  );
 }
 
 async function build() {
@@ -134,16 +141,19 @@ async function build() {
       const features = normalizeFeatureCollection(raw);
       const mapped = features.map((feature) => {
         const district_id = feature.properties && feature.properties.DCODE;
-        const district_name = feature.properties && feature.properties.DISTRICT_N;
-        const geometry_coords = feature.geometry && feature.geometry.coordinates;
+        const district_name =
+          feature.properties && feature.properties.DISTRICT_N;
+        const geometry_coords =
+          feature.geometry && feature.geometry.coordinates;
         const province_id = feature.properties && feature.properties.STATE_C;
 
         const constituency_ids = (constituencyIdentifiers || [])
           .filter((c) => c.distId === district_id)
-          .map((c) => `${district_id}-${c.consts}`);
+          .map((c) => Number(String(district_id) + String(c.consts)));
 
         return {
           type: 'Feature',
+          id: Number(String(province_id) + String(district_id)),
           properties: {
             district_id,
             province_id,
@@ -179,9 +189,11 @@ async function build() {
         const district_id = feature.properties && feature.properties.DCODE;
         const province_id = feature.properties && feature.properties.STATE_C;
         const sub_id = feature.properties && feature.properties.F_CONST;
-        const constituency_id = `${district_id}-${sub_id}`;
+        const constituency_id = Number(String(district_id) + String(sub_id));
         const coordinates = feature.geometry && feature.geometry.coordinates;
-        const conservation_area = !!(feature.properties && feature.properties.Conservati);
+        const conservation_area = !!(
+          feature.properties && feature.properties.Conservati
+        );
 
         return {
           type: 'Feature',
@@ -204,7 +216,11 @@ async function build() {
 
     log(`Prepared ${constituencies.length} constituencies`);
 
-    if (provinces.length === 0 || districts.length === 0 || constituencies.length === 0) {
+    if (
+      provinces.length === 0 ||
+      districts.length === 0 ||
+      constituencies.length === 0
+    ) {
       throw new Error('No features prepared; aborting topology build');
     }
 
@@ -250,7 +266,11 @@ async function build() {
     // Try to write an error marker to help debugging
     try {
       fs.mkdirSync(OUT_DIR, { recursive: true });
-      fs.writeFileSync(path.join(OUT_DIR, 'generate_error.txt'), String(err && err.stack || err), 'utf8');
+      fs.writeFileSync(
+        path.join(OUT_DIR, 'generate_error.txt'),
+        String((err && err.stack) || err),
+        'utf8'
+      );
     } catch (e) {
       // ignore
     }
