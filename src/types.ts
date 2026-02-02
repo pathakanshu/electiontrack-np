@@ -44,7 +44,7 @@ export type District = {
     province_id: number;
     name_en: string | null;
     name_np: string;
-    constituency_ids: string[];
+    constituency_ids: number[];
   };
   geometry: {
     type: 'MultiPolygon';
@@ -81,8 +81,9 @@ export type DistrictIdentifier = {
 
 export type Constituency = {
   type: 'Feature';
+  id: number;
   properties: {
-    constituency_id: string;
+    constituency_id: number;
     district_id: number;
     sub_id: number;
     province_id: number;
@@ -130,7 +131,7 @@ export type Candidate = {
   age: number;
   gender: string;
   image_url: string;
-  constituency_id: string;
+  constituency_id: number;
   district: number;
   province: number;
   experience: string;
@@ -174,4 +175,16 @@ export type CandidateIdentifier = {
   OTHERDETAILS: string;
   NAMEOFINST: string;
   ADDRESS: string;
+};
+
+export type leadingEntities = {
+  constituency: {
+    constituency_id: number;
+    sorted_candidates: Candidate[];
+  }[];
+};
+
+export type colorMapping = {
+  parties: Record<string, string>;
+  others: string;
 };
