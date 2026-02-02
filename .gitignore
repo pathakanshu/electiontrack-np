@@ -3,7 +3,8 @@
 
 # Project specific
 public/data/*
-
+playground
+cache
 
 # Logs
 logs
