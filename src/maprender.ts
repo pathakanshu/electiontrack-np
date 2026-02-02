@@ -1,27 +1,36 @@
 import { Map } from 'maplibre-gl';
-import { Province, District, Constituency } from './types';
+import type {
+  Province,
+  District,
+  Constituency,
+  Candidate,
+  colorMapping,
+} from './types';
 
 const background_color = '#ffffff';
 
 const province_border_color = '#ffffff';
-const province_fill_color = '#000000';
+const province_fill_color = '#a0a0a0';
 const province_fill_opacity = 0;
 const province_border_width = 2;
 const province_border_opacity = 1;
 
 // district is not used in HOR elections
 const district_border_color = '#ffffff';
-const district_fill_color = '#000000';
+const district_fill_color = '#a0a0a0';
 const district_fill_opacity = 1;
 const district_border_width = 1;
 const district_border_opacity = 1;
 
 const constituency_border_color = '#ffffff';
-const constituency_fill_color = '#F00000';
+const constituency_fill_color = '#9a9a9a';
 const constituency_fill_opacity = 1;
 const constituency_border_width = 1;
 const constituency_border_opacity = 1;
 
+/**
+ * Create a basic MapLibre map instance with a minimal style.
+ */
 export function createMap(containerID: string): Map {
   const map = new Map({
     container: containerID,
@@ -41,11 +50,15 @@ export function createMap(containerID: string): Map {
       ],
     },
     hash: true,
+    attributionControl: false,
   });
 
   return map;
 }
 
+/**
+ * Add provinces as a GeoJSON source + fill and border layers.
+ */
 export function addProvincesLayer(map: Map, provinces: Province[]) {
   const geojson = {
     type: 'FeatureCollection' as const,
@@ -79,6 +92,9 @@ export function addProvincesLayer(map: Map, provinces: Province[]) {
   });
 }
 
+/**
+ * Add districts as a GeoJSON source + fill and border layers.
+ */
 export function addDistrictsLayer(map: Map, districts: District[]) {
   const geojson = {
     type: 'FeatureCollection' as const,
@@ -112,11 +128,32 @@ export function addDistrictsLayer(map: Map, districts: District[]) {
   });
 }
 
+/**
+ * Add constituencies as a GeoJSON source and layers.
+ *
+ * Important:
+ * - Ensure every feature has an `id` equal to `properties.constituency_id`
+ *   so that `map.setFeatureState({ source: 'constituencies', id }, state)`
+ *   targets the correct feature.
+ * - The fill layer's `fill-color` expression prefers `feature-state.color`,
+ *   then a data property `color` (if present), then a default color.
+ */
+
 export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
   const geojson = {
     type: 'FeatureCollection' as const,
-    features: constituencies,
+    features: constituencies.map((f, i) => ({
+      type: 'Feature' as const,
+      id: f.properties.constituency_id,
+      geometry: f.geometry,
+      properties: { ...f.properties },
+    })),
   };
+  console.log(geojson.features);
+  // sanity check
+  geojson.features.forEach((f) => {
+    if (!f.id) console.warn('Feature missing id!', f);
+  });
 
   map.addSource('constituencies', {
     type: 'geojson',
@@ -128,7 +165,12 @@ export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
     type: 'fill',
     source: 'constituencies',
     paint: {
-      'fill-color': constituency_fill_color,
+      'fill-color': [
+        'coalesce',
+        ['feature-state', 'color'],
+        ['get', 'color'],
+        constituency_fill_color,
+      ],
       'fill-opacity': constituency_fill_opacity,
     },
   });
@@ -143,4 +185,68 @@ export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
       'line-opacity': constituency_border_opacity,
     },
   });
+}
+
+export function setConstituencyColor(
+  map: Map,
+  constituencyId: number,
+  color: string
+) {
+  if (!map.getSource('constituencies') || !map.isStyleLoaded()) {
+    // Retry after the map is idle (source + layers fully loaded)
+    map.once('idle', () => setConstituencyColor(map, constituencyId, color));
+    return;
+  }
+
+  // setFeatureState works on the source directly, no need to check rendered features
+  map.setFeatureState(
+    { source: 'constituencies', id: constituencyId },
+    { color }
+  );
+}
+
+/**
+ * Clear runtime color for a constituency (remove the color key).
+ */
+export function clearConstituencyColor(map: Map, constituencyId: number) {
+  try {
+    map.setFeatureState(
+      { source: 'constituencies', id: constituencyId },
+      { color: undefined }
+    );
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('clearConstituencyColor failed for', constituencyId, e);
+  }
+}
+
+/**
+ * Load party color mapping once and set feature-state color for each leading candidate.
+ *
+ * Behavior:
+ * - Attempts dynamic import of `./data/colorMapping.json` so Vite will resolve the JSON
+ *   during dev/build. If that fails, falls back to fetching `/data/colorMapping.json`.
+ * - For each candidate in `leadingCandidates`, resolves a color (mapping lookup, then
+ *   `default`, then hard-coded fallback) and writes it to feature-state for the
+ *   constituency feature id.
+ *
+ * Notes:
+ * - This function is async; callers should `await` it if they want to detect failures.
+ * - Feature-state is runtime-only; it is not persisted in the source.
+ */
+export async function colorConstituenciesByVotes(
+  map: Map,
+  leadingCandidates: Candidate[]
+) {
+  const colorMapping: colorMapping = await import('./data/colorMapping.json');
+
+  if (colorMapping) {
+    for (const candidate of leadingCandidates) {
+      let color = colorMapping.parties[candidate.party];
+      if (!color) {
+        color = colorMapping.others;
+      }
+      setConstituencyColor(map, candidate.constituency_id, color);
+    }
+  }
 }
