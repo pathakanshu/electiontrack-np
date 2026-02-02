@@ -8,9 +8,44 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.css"
     />
+    <link rel="stylesheet" href="/styles/main.css" />
   </head>
   <body>
-    <div id="map" style="width: 100%; height: 100vh"></div>
+    <div id="main-grid">
+      <header>
+        <nav>
+          <ul class="navbar-list">
+            <li class="navbar-item"><a href="#">Home</a></li>
+            <li class="navbar-item"><a href="#">About</a></li>
+            <li class="navbar-item"><a href="#">Docs</a></li>
+            <li class="navbar-item"><a href="#">ToS</a></li>
+            <li class="navbar-item">
+              <a href="#">English</a> / <a href="#">Nepali</a>
+            </li>
+          </ul>
+        </nav>
+        <div class="heading-text">
+          <h1>Nepal Election Tracker</h1>
+          <p>Now Tracking: 2079 HOR Elections</p>
+        </div>
+      </header>
+
+      <main id="main-container">
+        <div id="map"></div>
+      </main>
+
+      <aside id="sidebar-map-panel">
+        <div class="sidebar-title">Sidebar Title</div>
+        <div class="sidebar-content">Sidebar Content</div>
+      </aside>
+
+      <footer>
+        <small>
+          This open source project is not affiliated with the Government of Nepal
+        </small>
+      </footer>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
