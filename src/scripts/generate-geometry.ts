@@ -84,8 +84,13 @@ async function run() {
     // Dynamic import so any top-level awaits or network activity inside the bundler
     // are executed when we explicitly call them.
     log('Importing bundlers...');
-    const bundlerModule = await import('../data/dataBundler');
-    const buildModule = await import('../data/build-geometry');
+    // Use CommonJS require to load the bundler modules so ts-node/Node resolve works
+    // without needing `.ts` extensions (avoids TS5097 error).
+    // Keep typings ergonomically with `typeof import(...)` casts.
+    const bundlerModule =
+      require('../data/dataBundler') as typeof import('../data/dataBundler');
+    const buildModule =
+      require('../data/build-geometry') as typeof import('../data/build-geometry');
 
     // Type the imports loosely here; the bundler functions return typed Feature arrays.
     const bundleProvinces = bundlerModule.bundleProvinces as () => Promise<
