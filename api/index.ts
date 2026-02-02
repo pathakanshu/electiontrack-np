@@ -28,6 +28,7 @@ export async function fetchCandidates() {
   //   'https://result.election.gov.np/JSONFiles/ElectionResultCentral2079.txt'
   // );
   //
+  // TODO: make sure this fetch is happening in intervals
   const res = await fetch('/cache/ElectionResultCentral2079.txt');
 
   // Check HTTP status early so we don't try to parse an error page as JSON
