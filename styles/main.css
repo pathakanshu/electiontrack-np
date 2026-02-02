@@ -1,0 +1,86 @@
+html {
+  height: 100%;
+}
+
+body {
+  background-color: #2f2f2f;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  color: #eeeeee;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+#main-grid {
+  display: grid;
+  grid-template-columns: 3fr 1.25fr; /* 1/4 width for sidebar, 3/4 for map */
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-areas:
+    'navbar navbar'
+    'heading panel'
+    'map panel'
+    'footer footer';
+  height: 100vh; /* Make sure the grid takes full viewport height */
+  grid-gap: 20px; /* Adds spacing between areas */
+}
+header {
+  display: contents;
+}
+
+nav {
+  grid-area: navbar;
+  display: flex;
+  
+  justify-content: flex-end;
+  background-color: #333333;
+  height: 2rem;
+}
+
+.heading-text {
+  grid-area: heading;
+  margin-left: 1rem;
+}
+
+#main-container {
+  grid-area: map;
+}
+
+#sidebar-map-panel {
+  grid-area: panel;
+}
+
+.navbar-list {
+  display: flex;
+  gap: 2rem;
+  list-style-type: none;
+  padding: 0;
+  margin: 0.5rem 1rem;
+}
+
+.navbar-item a {
+  display: inline-block;
+  color: #eeeeee;
+  text-decoration: none;
+}
+
+.navbar-item:hover {
+  background-color: #333333;
+}
+
+#map{
+    width: 100%;
+    height: 100%;
+    margin-left: 1rem;
+}
+
+
+footer {
+  grid-area: footer;
+  grid-template-columns: repeat(2, 1fr);
+  justify-content: center;
+  align-items: center;
+  background-color: #333333;
+  color: #eeeeee;
+  padding: 1rem;
+}
