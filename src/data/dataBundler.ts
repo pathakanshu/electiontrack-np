@@ -130,7 +130,7 @@ export async function bundleDistricts(
     const province_id_local = feature.properties.STATE_C;
     const constituency_ids = constituencyIdentifiers
       .filter((c) => c.distId === district_id)
-      .map((c) => `${district_id}-${c.consts}`);
+      .map((c) => Number(String(district_id) + String(c.consts)));
 
     return {
       type: 'Feature',
@@ -161,12 +161,13 @@ export async function bundleConstituencies(
     const district_id_local = feature.properties.DCODE;
     const province_id = feature.properties.STATE_C;
     const sub_id = feature.properties.F_CONST;
-    const constituency_id = `${district_id_local}-${sub_id}`;
+    const constituency_id = Number(String(district_id_local) + String(sub_id));
     const coordinates = feature.geometry.coordinates;
     const conservation_area = !!feature.properties.Conservati;
 
     return {
       type: 'Feature',
+      id: constituency_id,
       properties: {
         constituency_id,
         district_id: district_id_local,
@@ -192,7 +193,7 @@ export async function bundleCandidates(): Promise<Candidate[]> {
 
   for (const candidate of raw_candidates) {
     const candidate_id = candidate.CandidateID;
-    const constituency_id = candidate.SCConstID;
+    const constituency_number = candidate.SCConstID;
     const name_np = candidate.CandidateName;
     const party = candidate.PoliticalPartyName;
     const gender = candidate.Gender;
@@ -213,7 +214,7 @@ export async function bundleCandidates(): Promise<Candidate[]> {
       age: age,
       gender: gender,
       image_url: image,
-      constituency_id: constituency_id,
+      constituency_id: Number(String(district) + String(constituency_number)),
       district: district,
       province: province,
       experience: experience,
@@ -225,6 +226,39 @@ export async function bundleCandidates(): Promise<Candidate[]> {
     };
 
     bundled.push(a_candidate);
+  }
+
+  bundled.sort((a, b) => {
+    if (a.constituency_id === b.constituency_id) {
+      return b.votes - a.votes;
+    }
+    return a.constituency_id - b.constituency_id;
+  });
+
+  return bundled;
+}
+
+export async function bundleLeadingCandidates(
+  candidates: Candidate[]
+): Promise<Candidate[]> {
+  // do not loop candidates whose Constituency is already bundled
+  const bundled: Candidate[] = [];
+  const seen = new Set();
+
+  for (const this_candidate of candidates) {
+    // Skip if the constituency is already bundled
+    if (seen.has(this_candidate.constituency_id)) continue;
+
+    // Find the leading candidate in the same constituency
+    // This works because we have sorted the candidates by votes in descending order
+    const leading_candidate = candidates.find(
+      (candidate) =>
+        candidate.constituency_id === this_candidate.constituency_id
+    );
+    if (leading_candidate) {
+      bundled.push(leading_candidate);
+      seen.add(leading_candidate.constituency_id);
+    }
   }
 
   return bundled;
