@@ -17,10 +17,10 @@ body {
   grid-template-columns: 3fr 1.25fr; /* 1/4 width for sidebar, 3/4 for map */
   grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
-    'navbar navbar'
-    'heading panel'
-    'map panel'
-    'footer footer';
+    'navbar   navbar'
+    'heading  panel'
+    'map      panel'
+    'footer   footer';
   height: 100vh; /* Make sure the grid takes full viewport height */
   grid-gap: 20px; /* Adds spacing between areas */
 }
@@ -31,7 +31,7 @@ header {
 nav {
   grid-area: navbar;
   display: flex;
-  
+
   justify-content: flex-end;
   background-color: #333333;
   height: 2rem;
@@ -43,11 +43,21 @@ nav {
 }
 
 #main-container {
+  display: contents;
+}
+
+.map-container {
   grid-area: map;
+  height: 100%;
+}
+
+#map {
+  height: 100%;
 }
 
 #sidebar-map-panel {
   grid-area: panel;
+  flex: 1;
 }
 
 .navbar-list {
@@ -68,18 +78,15 @@ nav {
   background-color: #333333;
 }
 
-#map{
-    width: 100%;
-    height: 100%;
-    margin-left: 1rem;
+#map {
+  width: 100%;
+  height: 100%;
+  margin-left: 1rem;
 }
-
 
 footer {
   grid-area: footer;
-  grid-template-columns: repeat(2, 1fr);
-  justify-content: center;
-  align-items: center;
+  display: flex;
   background-color: #333333;
   color: #eeeeee;
   padding: 1rem;
