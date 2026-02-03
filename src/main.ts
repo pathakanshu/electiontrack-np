@@ -6,79 +6,13 @@ import {
   colorConstituenciesByVotes,
 } from './map/maprender';
 import { bundleCandidates, bundleLeadingCandidates } from './data/dataBundler';
-import { feature, type Topology } from 'topojson-client';
-import type {
-  Province,
-  District,
-  Constituency,
-  Candidate,
-} from './types/election';
-
-/**
- * Lightweight runtime check to ensure the fetched object looks like a Topology
- * with the expected named objects. This protects the typed conversions below.
- */
-function isTopologyLike(obj: unknown): obj is Topology {
-  if (typeof obj !== 'object' || obj === null) return false;
-  const rec = obj as Record<string, unknown>;
-  if (rec.type !== 'Topology') return false;
-  if (typeof rec.objects !== 'object' || rec.objects === null) return false;
-  const objs = rec.objects as Record<string, unknown>;
-  return 'provinces' in objs && 'districts' in objs && 'constituencies' in objs;
-}
-
-async function fetchTopology(url: string): Promise<Topology> {
-  const res = await fetch(url);
-  const data = (await res.json()) as unknown;
-  if (!isTopologyLike(data)) {
-    throw new Error(`Invalid TopoJSON topology at ${url}`);
-  }
-  return data;
-}
-
-/**
- * Convert a GeoJSON Feature (from topojson-client) into the app-specific Feature type.
- * These functions also perform runtime sanity checks (non-null properties, MultiPolygon geometry).
- */
-function toProvinceFeature(
-  f: GeoJSON.Feature<GeoJSON.MultiPolygon, Province['properties']>
-): Province {
-  if (!f.properties) throw new Error('Province feature missing properties');
-  if (!f.geometry || f.geometry.type !== 'MultiPolygon')
-    throw new Error('Province feature has unexpected geometry type');
-  return {
-    type: 'Feature',
-    properties: f.properties,
-    geometry: f.geometry,
-  };
-}
-
-// function toDistrictFeature(
-//   f: GeoJSON.Feature<GeoJSON.MultiPolygon, District['properties']>
-// ): District {
-//   if (!f.properties) throw new Error('District feature missing properties');
-//   if (!f.geometry || f.geometry.type !== 'MultiPolygon')
-//     throw new Error('District feature has unexpected geometry type');
-//   return {
-//     type: 'Feature',
-//     properties: f.properties,
-//     geometry: f.geometry,
-//   };
-// }
-
-function toConstituencyFeature(
-  f: GeoJSON.Feature<GeoJSON.MultiPolygon, Constituency['properties']>
-): Constituency {
-  if (!f.properties) throw new Error('Constituency feature missing properties');
-  if (!f.geometry || f.geometry.type !== 'MultiPolygon')
-    throw new Error('Constituency feature has unexpected geometry type');
-  return {
-    type: 'Feature',
-    id: f.properties.constituency_id,
-    properties: f.properties,
-    geometry: f.geometry,
-  };
-}
+import { feature } from 'topojson-client';
+import {
+  fetchTopology,
+  toProvinceFeature,
+  toConstituencyFeature,
+} from './utils/geo';
+import type { Province, Constituency, Candidate } from './types/election';
 
 /**
  * Initialize map immediately and attach the 'load' handler right away.
@@ -102,7 +36,9 @@ function init() {
       Constituency['properties']
     >(topo, 'constituencies');
 
+    // @ts-ignore - topojson-client types can be tricky with Feature vs FeatureCollection
     const provinces: Province[] = provincesFC.features.map(toProvinceFeature);
+    // @ts-ignore
     const constituencies: Constituency[] = constituenciesFC.features.map(
       toConstituencyFeature
     );
