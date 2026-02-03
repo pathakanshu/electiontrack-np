@@ -7,7 +7,7 @@ import type {
   colorMapping,
 } from './types';
 
-const background_color = '#ffffff';
+const background_color = '#2f2f2f';
 
 const province_border_color = '#ffffff';
 const province_fill_color = '#a0a0a0';
@@ -34,8 +34,8 @@ const constituency_border_opacity = 1;
 export function createMap(containerID: string): Map {
   const map = new Map({
     container: containerID,
-    center: [84.124, 28.394],
-    zoom: 6.5,
+    center: [84.116, 28.410],
+    zoom: 6.25,
     style: {
       version: 8,
       sources: {},
@@ -49,7 +49,7 @@ export function createMap(containerID: string): Map {
         },
       ],
     },
-    hash: true,
+    hash: false,
     attributionControl: false,
   });
 

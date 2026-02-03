@@ -85,43 +85,43 @@ function init() {
   const map = createMap('map');
 
   map.on('load', async () => {
+    console.log('[main] map loaded — fetching prebuilt topology...');
+    const topo = await fetchTopology('/data/geometry.topo.json');
 
-      console.log('[main] map loaded — fetching prebuilt topology...');
-      const topo = await fetchTopology('/data/geometry.topo.json');
+    const provincesFC = feature<GeoJSON.MultiPolygon, Province['properties']>(
+      topo,
+      'provinces'
+    );
+    const constituenciesFC = feature<
+      GeoJSON.MultiPolygon,
+      Constituency['properties']
+    >(topo, 'constituencies');
 
-      const provincesFC = feature<GeoJSON.MultiPolygon, Province['properties']>(
-        topo,
-        'provinces'
-      );
-      const constituenciesFC = feature<
-        GeoJSON.MultiPolygon,
-        Constituency['properties']
-      >(topo, 'constituencies');
+    const provinces: Province[] = provincesFC.features.map(toProvinceFeature);
+    const constituencies: Constituency[] = constituenciesFC.features.map(
+      toConstituencyFeature
+    );
 
-      const provinces: Province[] = provincesFC.features.map(toProvinceFeature);
-      const constituencies: Constituency[] = constituenciesFC.features.map(
-        toConstituencyFeature
-      );
+    const candidates: Candidate[] = await bundleCandidates();
+    const leadingCandidates: Candidate[] =
+      await bundleLeadingCandidates(candidates);
 
-      const candidates: Candidate[] = await bundleCandidates();
-      const leadingCandidates: Candidate[] =
-        await bundleLeadingCandidates(candidates);
+    // Add layers
+    addProvincesLayer(map, provinces);
+    addConstituencyLayer(map, constituencies);
 
-      // Add layers
-      addProvincesLayer(map, provinces);
-      addConstituencyLayer(map, constituencies);
+    // Wait for the constituencies source to finish loading before coloring
+    map.on('sourcedata', async (e) => {
+      if (!e.isSourceLoaded || e.sourceId !== 'constituencies') return;
 
-      // Wait for the constituencies source to finish loading before coloring
-      map.on('sourcedata', async (e) => {
-        if (!e.isSourceLoaded || e.sourceId !== 'constituencies') return;
+      console.log('[main] constituencies source loaded, coloring now...');
+      await colorConstituenciesByVotes(map, leadingCandidates);
 
-        console.log('[main] constituencies source loaded, coloring now...');
-        await colorConstituenciesByVotes(map, leadingCandidates);
+      const ids = map.querySourceFeatures('constituencies').map((f) => f.id);
+      console.log('[main] colored constituency IDs:', ids);
+    });
 
-        const ids = map.querySourceFeatures('constituencies').map((f) => f.id);
-        console.log('[main] colored constituency IDs:', ids);
-      });
-    
+    map.setPaintProperty('background', 'background-color', 'transparent');
   });
 }
 
