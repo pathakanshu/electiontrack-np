@@ -88,9 +88,9 @@ async function run() {
     // without needing `.ts` extensions (avoids TS5097 error).
     // Keep typings ergonomically with `typeof import(...)` casts.
     const bundlerModule =
-      require('../data/dataBundler') as typeof import('../data/dataBundler');
+      require('../src/data/dataBundler') as typeof import('../src/data/dataBundler');
     const buildModule =
-      require('../data/build-geometry') as typeof import('../data/build-geometry');
+      require('./build-geometry') as typeof import('./build-geometry');
 
     // Type the imports loosely here; the bundler functions return typed Feature arrays.
     const bundleProvinces = bundlerModule.bundleProvinces as () => Promise<

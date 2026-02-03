@@ -5,7 +5,7 @@ import type {
   Constituency,
   Candidate,
   colorMapping,
-} from './types';
+} from '../types/election';
 
 const background_color = '#2f2f2f';
 
@@ -34,7 +34,7 @@ const constituency_border_opacity = 1;
 export function createMap(containerID: string): Map {
   const map = new Map({
     container: containerID,
-    center: [84.116, 28.410],
+    center: [84.116, 28.41],
     zoom: 6.25,
     style: {
       version: 8,
@@ -238,7 +238,8 @@ export async function colorConstituenciesByVotes(
   map: Map,
   leadingCandidates: Candidate[]
 ) {
-  const colorMapping: colorMapping = await import('./data/colorMapping.json');
+  const colorMapping: colorMapping =
+    await import('../config/colorMapping.json');
 
   if (colorMapping) {
     for (const candidate of leadingCandidates) {

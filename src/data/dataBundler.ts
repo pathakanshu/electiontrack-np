@@ -33,7 +33,7 @@ import type {
   ConstituencyFeature,
   Candidate,
   CandidateIdentifier,
-} from '../types';
+} from '../types/election';
 
 /**
  * Cache for lookup lists loaded lazily to avoid network activity at import time.

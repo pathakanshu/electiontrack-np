@@ -4,10 +4,15 @@ import {
   // addDistrictsLayer,
   addConstituencyLayer,
   colorConstituenciesByVotes,
-} from './maprender';
+} from './map/maprender';
 import { bundleCandidates, bundleLeadingCandidates } from './data/dataBundler';
 import { feature, type Topology } from 'topojson-client';
-import type { Province, District, Constituency, Candidate } from './types';
+import type {
+  Province,
+  District,
+  Constituency,
+  Candidate,
+} from './types/election';
 
 /**
  * Lightweight runtime check to ensure the fetched object looks like a Topology

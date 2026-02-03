@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "test": "vitest",
-    "generate-geometry": "npx tsx src/scripts/generate-geometry.ts",
+    "generate-geometry": "npx tsx scripts/generate-geometry.ts",
     "build": "npm run generate-geometry && vite build"
   },
   "repository": {

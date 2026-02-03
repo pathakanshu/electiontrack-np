@@ -3,7 +3,7 @@ import { simplify, presimplify } from 'topojson-simplify';
 import fs from 'fs';
 import path from 'path';
 
-import type { Province, District, Constituency } from '../types';
+import type { Province, District, Constituency } from '../src/types/election';
 
 type FeatureCollection<T> = {
   type: 'FeatureCollection';
