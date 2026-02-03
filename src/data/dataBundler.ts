@@ -20,7 +20,7 @@ import {
   fetchDistricts,
   fetchConstituencies,
   fetchCandidates,
-} from '../../api/index';
+} from './api';
 
 import type {
   ProvinceFeature,
