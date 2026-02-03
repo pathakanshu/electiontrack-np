@@ -31,17 +31,36 @@
       </header>
 
       <main id="main-container">
-        <div id="map"></div>
+        <!-- Sidebar -->
+        <div class="sidebar-map-panel">
+          <div class="sidebar-content">
+            <section class="sidebar-content">
+              <h2 id="watchlist-text">Watchlist</h2>
+              <div class="watchlist-content">
+                <!-- Each candidate is an article -->
+                <article class="watchlist-item">
+                  <h3 class="watchlist-item-title">Party Name</h3>
+                  <div class="watchlist-item-details">
+                    <div class="watchlist-item-detail">Leader: Leader Name</div>
+                    <div class="watchlist-item-detail">Seats: 10</div>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </div>
+          <div class="sidebar-content">
+            <div class="parties-index">Index (Top 5)</div>
+          </div>
+        </div>
+        <!-- Map Container -->
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
       </main>
-
-      <aside id="sidebar-map-panel">
-        <div class="sidebar-title">Sidebar Title</div>
-        <div class="sidebar-content">Sidebar Content</div>
-      </aside>
-
       <footer>
         <small>
-          This open source project is not affiliated with the Government of Nepal
+          This open source project is not affiliated with the Government of
+          Nepal
         </small>
       </footer>
     </div>
