@@ -10,20 +10,22 @@ body {
   color: #eeeeee;
   height: 100%;
   box-sizing: border-box;
+  overflow: hidden; /* Prevent body scroll to keep the dashboard feel */
 }
 
 #main-grid {
   display: grid;
-  grid-template-columns: 3fr 1.25fr; /* 1/4 width for sidebar, 3/4 for map */
+  grid-template-columns: 3fr 1.25fr;
   grid-template-rows: auto auto 1fr auto;
   grid-template-areas:
     'navbar   navbar'
-    'heading  panel'
-    'map      panel'
+    'heading  sidebar'
+    'map      sidebar'
     'footer   footer';
-  height: 100vh; /* Make sure the grid takes full viewport height */
-  grid-gap: 20px; /* Adds spacing between areas */
+  height: 100vh;
+  grid-gap: 20px;
 }
+
 header {
   display: contents;
 }
@@ -31,7 +33,6 @@ header {
 nav {
   grid-area: navbar;
   display: flex;
-
   justify-content: flex-end;
   background-color: #333333;
   height: 2rem;
@@ -49,15 +50,179 @@ nav {
 .map-container {
   grid-area: map;
   height: 100%;
+  margin-left: 1rem;
 }
 
 #map {
+  width: 100%;
   height: 100%;
 }
 
-#sidebar-map-panel {
-  grid-area: panel;
+.sidebar-map-panel {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding-right: 1rem;
+  height: 100%;
+  min-height: 0; /* Prevents flex items from overflowing the grid row */
+}
+
+.sidebar-section {
+  background-color: #383838;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Crucial for nested scrolling */
+}
+
+.sidebar-section h2,
+.sidebar-section h3 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.watchlist-section {
+  flex: 2; /* Takes up 2 parts of the sidebar space */
+}
+
+.leaderboard-section {
+  flex: 1; /* Takes up 1 part of the sidebar space */
+}
+
+.watchlist-scroll-container {
   flex: 1;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+  padding-right: 4px;
+}
+
+/* Clean Custom Scrollbar */
+.watchlist-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+.watchlist-scroll-container::-webkit-scrollbar-track {
+  background: #383838;
+}
+.watchlist-scroll-container::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+.watchlist-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.watchlist-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.watchlist-item {
+  background-color: #444;
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+
+.watchlist-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.watchlist-item-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.party-tag {
+  font-size: 0.6rem;
+  background-color: #2f2f2f;
+  color: white;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.watchlist-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #ccc;
+}
+
+.detail-label {
+  margin-right: 0.5rem;
+  color: #888;
+}
+
+.detail-value {
+  font-weight: bold;
+  color: #eee;
+}
+
+.hint-text {
+  font-size: 0.75rem;
+  color: #666;
+  text-align: center;
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+.index-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.index-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #444;
+  overflow: hidden;
+}
+
+.index-item:last-child {
+  border-bottom: none;
+}
+
+.rank {
+  color: #888;
+  width: 1.5rem;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.party-name {
+  flex: 1;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 0.5rem;
+}
+
+.seat-count {
+  font-weight: bold;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.status-message {
+  font-style: italic;
+  color: #888;
+  text-align: center;
+  padding: 1rem 0;
+  font-size: 0.85rem;
 }
 
 .navbar-list {
@@ -72,16 +237,11 @@ nav {
   display: inline-block;
   color: #eeeeee;
   text-decoration: none;
+  font-size: 0.9rem;
 }
 
 .navbar-item:hover {
-  background-color: #333333;
-}
-
-#map {
-  width: 100%;
-  height: 100%;
-  margin-left: 1rem;
+  text-decoration: underline;
 }
 
 footer {
