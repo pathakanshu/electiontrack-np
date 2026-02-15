@@ -7,7 +7,7 @@ import type {
   colorMapping,
 } from '../types/election';
 
-const background_color = '#2f2f2f';
+const background_color = '#ffffff';
 
 const province_border_color = '#ffffff';
 const province_fill_color = '#a0a0a0';
@@ -45,6 +45,8 @@ export function createMap(containerID: string): Map {
           type: 'background',
           paint: {
             'background-color': background_color,
+            'background-opacity': 0,
+            
           },
         },
       ],
@@ -220,20 +222,7 @@ export function clearConstituencyColor(map: Map, constituencyId: number) {
   }
 }
 
-/**
- * Load party color mapping once and set feature-state color for each leading candidate.
- *
- * Behavior:
- * - Attempts dynamic import of `./data/colorMapping.json` so Vite will resolve the JSON
- *   during dev/build. If that fails, falls back to fetching `/data/colorMapping.json`.
- * - For each candidate in `leadingCandidates`, resolves a color (mapping lookup, then
- *   `default`, then hard-coded fallback) and writes it to feature-state for the
- *   constituency feature id.
- *
- * Notes:
- * - This function is async; callers should `await` it if they want to detect failures.
- * - Feature-state is runtime-only; it is not persisted in the source.
- */
+
 export async function colorConstituenciesByVotes(
   map: Map,
   leadingCandidates: Candidate[]
