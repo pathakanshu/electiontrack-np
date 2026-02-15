@@ -8,63 +8,9 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.css"
     />
-    <link rel="stylesheet" href="/styles/main.css" />
   </head>
   <body>
-    <div id="main-grid">
-      <header>
-        <nav>
-          <ul class="navbar-list">
-            <li class="navbar-item"><a href="#">Home</a></li>
-            <li class="navbar-item"><a href="#">About</a></li>
-            <li class="navbar-item"><a href="#">Docs</a></li>
-            <li class="navbar-item"><a href="#">ToS</a></li>
-            <li class="navbar-item">
-              <a href="#">English</a> / <a href="#">Nepali</a>
-            </li>
-          </ul>
-        </nav>
-        <div class="heading-text">
-          <h1>Nepal Election Tracker</h1>
-          <p>Now Tracking: 2079 HOR Elections</p>
-        </div>
-      </header>
-
-      <main id="main-container">
-        <!-- Sidebar -->
-        <div class="sidebar-map-panel">
-          <div class="sidebar-content">
-            <section class="sidebar-content">
-              <h2 id="watchlist-text">Watchlist</h2>
-              <div class="watchlist-content">
-                <!-- Each candidate is an article -->
-                <article class="watchlist-item">
-                  <h3 class="watchlist-item-title">Party Name</h3>
-                  <div class="watchlist-item-details">
-                    <div class="watchlist-item-detail">Leader: Leader Name</div>
-                    <div class="watchlist-item-detail">Seats: 10</div>
-                  </div>
-                </article>
-              </div>
-            </section>
-          </div>
-          <div class="sidebar-content">
-            <div class="parties-index">Index (Top 5)</div>
-          </div>
-        </div>
-        <!-- Map Container -->
-        <div class="map-container">
-          <div id="map"></div>
-        </div>
-      </main>
-      <footer>
-        <small>
-          This open source project is not affiliated with the Government of
-          Nepal
-        </small>
-      </footer>
-    </div>
-
-    <script type="module" src="/src/main.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
