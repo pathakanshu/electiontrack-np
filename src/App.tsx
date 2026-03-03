@@ -16,6 +16,7 @@ import '../styles/main.css';
  */
 const App: React.FC = () => {
   const {
+    candidates,
     leadingCandidates,
     stats,
     loading: dataLoading,
@@ -44,7 +45,7 @@ const App: React.FC = () => {
           </div>
         ) : isLoading ? (
           <div style={{ padding: '2rem', gridArea: 'map' }}>
-            <div style={{background: "#444"}}>
+            <div style={{ background: '#444' }}>
               <h2>Initialising Tracker...</h2>
               <p>
                 Fetching topology and live election results from the Election
@@ -58,7 +59,7 @@ const App: React.FC = () => {
               Sidebar will be updated next to consume these stats
               for D3-powered visualizations and the live watchlist.
             */}
-            <Sidebar stats={stats} />
+            <Sidebar stats={stats} candidates={candidates} />
 
             {/*
               The ElectionMap handles the MapLibre instance and
