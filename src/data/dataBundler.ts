@@ -44,7 +44,7 @@ let _constituencyIdentifiers: ConstituencyIdentifier[] | null = null;
 /**
  * Fetch and cache district identifiers (lazy).
  */
-async function getDistrictIdentifiers(): Promise<DistrictIdentifier[]> {
+export async function getDistrictIdentifiers(): Promise<DistrictIdentifier[]> {
   if (_districtIdentifiers) return _districtIdentifiers;
 
   const url =
