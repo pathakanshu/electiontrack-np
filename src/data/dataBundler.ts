@@ -1,18 +1,19 @@
 /**
  * src/data/dataBundler.ts
  *
- * Refactored to avoid top-level await. Identifier lookups (districts / constituencies)
- * are loaded lazily and cached on first use so this module can be imported without
- * performing network requests immediately.
+ * Bundles raw election data from API into typed GeoJSON Feature objects.
+ *
+ * This module:
+ * - Fetches data using functions from ./api.ts (which use election config)
+ * - Caches identifier lookups lazily to avoid network activity at import time
+ * - Transforms raw data into typed Feature structures for the app
  *
  * Exports:
  *  - bundleProvinces(): Promise<Province[]>
  *  - bundleDistricts(province_id): Promise<District[]>
  *  - bundleConstituencies(district_id): Promise<Constituency[]>
  *  - bundleCandidates(): Promise<Candidate[]>
- *
- * The bundling logic is unchanged from the previous implementation; only the
- * identifier fetching is deferred.
+ *  - bundleLeadingCandidates(candidates): Promise<Candidate[]>
  */
 
 import {
@@ -20,6 +21,8 @@ import {
   fetchDistricts,
   fetchConstituencies,
   fetchCandidates,
+  fetchDistrictIdentifiers,
+  fetchConstituencyIdentifiers,
 } from './api';
 
 import type {
@@ -43,40 +46,38 @@ let _constituencyIdentifiers: ConstituencyIdentifier[] | null = null;
 
 /**
  * Fetch and cache district identifiers (lazy).
+ * These map district IDs to their parent province IDs.
  */
 export async function getDistrictIdentifiers(): Promise<DistrictIdentifier[]> {
   if (_districtIdentifiers) return _districtIdentifiers;
 
-  const url =
-    'https://result.election.gov.np/JSONFiles/Election2079/Local/Lookup/districts.json';
-  const res = await fetch(url);
-  if (!res.ok) {
+  try {
+    const data = await fetchDistrictIdentifiers();
+    _districtIdentifiers = data as DistrictIdentifier[];
+    return _districtIdentifiers;
+  } catch (err) {
     throw new Error(
-      `Failed to fetch district identifiers: ${res.status} ${res.statusText}`
+      `Failed to fetch district identifiers: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-  const data = (await res.json()) as DistrictIdentifier[];
-  _districtIdentifiers = data;
-  return data;
 }
 
 /**
  * Fetch and cache constituency identifiers (lazy).
+ * These map district IDs to their constituency counts.
  */
 async function getConstituencyIdentifiers(): Promise<ConstituencyIdentifier[]> {
   if (_constituencyIdentifiers) return _constituencyIdentifiers;
 
-  const url =
-    'https://result.election.gov.np/JSONFiles/Election2079/HOR/Lookup/constituencies.json';
-  const res = await fetch(url);
-  if (!res.ok) {
+  try {
+    const data = await fetchConstituencyIdentifiers();
+    _constituencyIdentifiers = data as ConstituencyIdentifier[];
+    return _constituencyIdentifiers;
+  } catch (err) {
     throw new Error(
-      `Failed to fetch constituency identifiers: ${res.status} ${res.statusText}`
+      `Failed to fetch constituency identifiers: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-  const data = (await res.json()) as ConstituencyIdentifier[];
-  _constituencyIdentifiers = data;
-  return data;
 }
 
 /**
@@ -153,7 +154,8 @@ export async function bundleDistricts(
  * Fetch and bundle all constituencies for a given district as GeoJSON Features.
  */
 export async function bundleConstituencies(
-  district_id: number
+  district_id: number,
+  district_name?: string
 ): Promise<Constituency[]> {
   const rawConstituencies = await fetchConstituencies(district_id);
 
@@ -164,6 +166,7 @@ export async function bundleConstituencies(
     const constituency_id = Number(String(district_id_local) + String(sub_id));
     const coordinates = feature.geometry.coordinates;
     const conservation_area = !!feature.properties.Conservati;
+    const district_name_local = district_name || feature.properties.DISTRICT_N;
 
     return {
       type: 'Feature',
@@ -171,6 +174,7 @@ export async function bundleConstituencies(
       properties: {
         constituency_id,
         district_id: district_id_local,
+        district_name: district_name_local,
         sub_id,
         province_id,
         conservation_area,
@@ -184,7 +188,7 @@ export async function bundleConstituencies(
 }
 
 /**
- * Fetch and bundle all candidates (unchanged).
+ * Fetch and bundle all candidates for the current election.
  */
 export async function bundleCandidates(): Promise<Candidate[]> {
   const raw_candidates: CandidateIdentifier[] = await fetchCandidates();
@@ -238,6 +242,12 @@ export async function bundleCandidates(): Promise<Candidate[]> {
   return bundled;
 }
 
+/**
+ * Extract the leading (highest vote) candidate from each constituency.
+ *
+ * @param candidates - Array of all candidates (should be sorted by votes)
+ * @returns Array of one candidate per constituency (the one with most votes)
+ */
 export async function bundleLeadingCandidates(
   candidates: Candidate[]
 ): Promise<Candidate[]> {

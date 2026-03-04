@@ -85,17 +85,18 @@ async function run() {
     // are executed when we explicitly call them.
     log('Importing bundlers...');
     // Use dynamic imports for ESM compatibility since "type": "module" is set
-    const bundlerModule = await import('../src/data/dataBundler');
+    // Use dataBundlerBuild which reads cache files from disk (not fetch)
+    const bundlerModule = await import('../src/data/dataBundlerBuild');
     const buildModule = await import('./build-geometry');
 
     // Type the imports loosely here; the bundler functions return typed Feature arrays.
-    const bundleProvinces = bundlerModule.bundleProvinces as () => Promise<
+    const bundleProvinces = bundlerModule.bundleProvincesBuild as () => Promise<
       any[]
     >;
-    const bundleDistricts = bundlerModule.bundleDistricts as (
+    const bundleDistricts = bundlerModule.bundleDistrictsBuild as (
       p: number
     ) => Promise<any[]>;
-    const bundleConstituencies = bundlerModule.bundleConstituencies as (
+    const bundleConstituencies = bundlerModule.bundleConstituenciesBuild as (
       d: number
     ) => Promise<any[]>;
     const buildGeometry = buildModule.buildGeometry as (

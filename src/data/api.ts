@@ -1,35 +1,105 @@
+/**
+ * src/data/api.ts
+ *
+ * Data fetching functions that use the centralized election configuration.
+ * All API endpoints are now defined in src/config/elections.ts, making it
+ * easy to support multiple elections.
+ */
+
+import { getCurrentElection } from '../config/elections';
+
+/**
+ * Fetch provinces GeoJSON from the current election's configuration.
+ */
 export async function fetchProvinces() {
-  const res = await fetch(
-    'https://result.election.gov.np/JSONFiles/JSONMap/geojson/Province.json'
-  );
+  const election = getCurrentElection();
+  const res = await fetch(election.endpoints.provinces);
   const data = await res.json();
   return data;
 }
 
+/**
+ * Fetch districts GeoJSON for a specific province from the current election.
+ */
 export async function fetchDistricts(provinceId: number) {
-  const res = await fetch(
-    `https://result.election.gov.np/JSONFiles/JSONMap/geojson/District/STATE_C_${provinceId}.json`
-  );
+  const election = getCurrentElection();
+  const url = election.endpoints.districts(provinceId);
+  const res = await fetch(url);
   const data = await res.json();
   return data;
 }
 
+/**
+ * Fetch constituencies GeoJSON for a specific district from the current election.
+ */
 export async function fetchConstituencies(districtId: number) {
-  const res = await fetch(
-    `https://result.election.gov.np/JSONFiles/JSONMap/geojson/Const/dist-${districtId}.json`
-  );
+  const election = getCurrentElection();
+  const url = election.endpoints.constituencies(districtId);
+  const res = await fetch(url);
   const data = await res.json();
   return data;
 }
 
-// This should be used as the primary function to fetch all candidate data
+/**
+ * Fetch district identifiers from the current election's cache.
+ * Returns array of { id, name, parentId } objects.
+ */
+export async function fetchDistrictIdentifiers() {
+  const election = getCurrentElection();
+  const url = election.endpoints.districtIdentifiers;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch district identifiers: ${res.status} ${res.statusText}`
+    );
+  }
+  const data = await res.json();
+  return data;
+}
+
+/**
+ * Fetch constituency identifiers from the current election's cache.
+ * Returns array of { distId, consts } objects.
+ */
+export async function fetchConstituencyIdentifiers() {
+  const election = getCurrentElection();
+  const url = election.endpoints.constituencyIdentifiers;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch constituency identifiers: ${res.status} ${res.statusText}`
+    );
+  }
+  const data = await res.json();
+  return data;
+}
+
+/**
+ * Fetch party symbols from the current election's cache.
+ * Returns array of { symbolId, symbolName } objects.
+ */
+export async function fetchSymbols() {
+  const election = getCurrentElection();
+  const url = election.endpoints.symbolIdentifiers;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch symbols: ${res.status} ${res.statusText}`);
+  }
+  const data = await res.json();
+  return data;
+}
+
+/**
+ * Fetch all candidate results from the current election.
+ * This is the primary function to fetch election results data.
+ *
+ * The data includes all candidates with their votes, parties, symbols, etc.
+ */
 export async function fetchCandidates() {
-  // const res = await fetch(
-  //   'https://result.election.gov.np/JSONFiles/ElectionResultCentral2079.txt'
-  // );
-  //
-  // TODO: make sure this fetch is happening in intervals
-  const res = await fetch('/cache/ElectionResultCentral2079.txt');
+  const election = getCurrentElection();
+  const url = election.endpoints.candidates;
+
+  const res = await fetch(url);
 
   // Check HTTP status early so we don't try to parse an error page as JSON
   if (!res.ok) {
@@ -59,16 +129,37 @@ export async function fetchCandidates() {
   }
 }
 
-// This is only used as fallback if fetchAllCandidates turn out to not work
-// to avoid sending more requests than necessary
-// TODO: Loop and send a json that looks just like fetchCandidates's response
+/**
+ * Fetch results for a specific constituency from the current election.
+ * This is a fallback in case we need per-constituency data.
+ *
+ * @param districtId - The district ID
+ * @param constituencyId - The constituency ID
+ */
 export async function fetchConstituencyCandidates(
   districtId: number,
   constituencyId: number
 ) {
-  const res = await fetch(
-    `https://result.election.gov.np/JSONFiles/Election2079/HOR/FPTP/HOR-${districtId}-${constituencyId}.json`
+  const election = getCurrentElection();
+
+  if (!election.endpoints.constituencyResults) {
+    throw new Error(
+      'Constituency-specific results URL not configured for this election'
+    );
+  }
+
+  // Get the URL from the function
+  const url = election.endpoints.constituencyResults(
+    districtId,
+    constituencyId
   );
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `fetchConstituencyCandidates: HTTP ${res.status} ${res.statusText}`
+    );
+  }
   const data = await res.json();
   return data;
 }
