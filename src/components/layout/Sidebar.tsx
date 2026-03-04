@@ -15,9 +15,16 @@ import { getDistrictIdentifiers } from '../../data/dataBundler';
 // Types
 // ---------------------------------------------------------------------------
 
+import { getCurrentElection } from '../../config/elections';
+import { highlightConstituencies, clearHighlights } from '../../map/maprender';
+import colorMapping from '../../config/colorMapping.json';
+
 interface SidebarProps {
   stats: ElectionStats | null;
   candidates: Candidate[];
+  /** The single leading candidate per constituency — used for party highlighting. */
+  leadingCandidates: Candidate[];
+  map: any;
 }
 
 export interface SidebarRef {
@@ -47,6 +54,8 @@ interface WatchlistCardData {
   /** Top 3 candidates sorted by votes descending. */
   topCandidates: Candidate[];
   totalVotes: number;
+  /** The leading (winning) party name for this constituency. */
+  leadingParty: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,65 +203,190 @@ const SearchResultItem: React.FC<{
 const WatchlistItem: React.FC<{
   data: WatchlistCardData;
   onRemove: (constituencyId: number) => void;
-}> = ({ data, onRemove }) => (
-  <article className="watchlist-item">
-    {/* Top bar: title + total votes + remove button */}
-    <div className="watchlist-item-topbar">
-      <h3 className="watchlist-item-title">
-        <span className="watchlist-title-district">{data.districtName}</span>
-        <span className="watchlist-title-sep">-</span>
-        <span className="watchlist-title-id">{data.constituencyName}</span>
-      </h3>
-      <span className="topbar-stat">
-        <span className="topbar-value">{data.totalVotes.toLocaleString()}</span>
-        <span className="topbar-label"> votes</span>
-      </span>
-      <button
-        className="watchlist-remove-btn"
-        onClick={() => onRemove(data.constituencyId)}
-        aria-label={`Remove ${data.districtName} - ${data.constituencyName} from watchlist`}
-      >
-        ✕
-      </button>
-    </div>
+  map: any;
+  leadingCandidates: Candidate[];
+}> = ({ data, onRemove, map, leadingCandidates }) => {
+  // Track whether the mouse is still inside this card. When a party-highlight
+  // child clears all highlights on mouse-leave, we use this to immediately
+  // restore the card-level constituency highlight.
+  const enterCard = () => {
+    if (map)
+      highlightConstituencies(
+        map,
+        new Set([data.constituencyId]),
+        leadingCandidates
+      );
+  };
 
-    {/* Body: names on left, symbols + votes on right */}
-    <div className="watchlist-item-body">
-      {/* Left — top 3 candidate names */}
-      <ol className="watchlist-candidates-list">
-        {data.topCandidates.map((c) => (
-          <li key={c.candidate_id} className="watchlist-candidate-name">
-            {c.name_np}
-          </li>
-        ))}
-      </ol>
+  const leaveCard = () => {
+    if (map) clearHighlights(map, leadingCandidates);
+  };
 
-      {/* Right — 3 columns: symbol image + vote count */}
-      <div className="watchlist-symbols-row">
-        {data.topCandidates.map((c) => (
-          <div key={c.candidate_id} className="watchlist-symbol-col">
-            <img
-              className="watchlist-symbol-img"
-              src={`${SYMBOL_IMG_URL}/${c.symbol_id}.jpg`}
-              alt={c.party}
-              loading="lazy"
-            />
-            <span className="watchlist-symbol-votes">
-              {c.votes.toLocaleString()}
-            </span>
-          </div>
-        ))}
+  const enterParty = (party: string) => {
+    if (!map) return;
+    const ids = new Set(
+      leadingCandidates
+        .filter((c) => c.party === party)
+        .map((c) => c.constituency_id)
+    );
+    highlightConstituencies(map, ids, leadingCandidates);
+  };
+
+  const leaveParty = () => {
+    if (!map) return;
+    highlightConstituencies(
+      map,
+      new Set([data.constituencyId]),
+      leadingCandidates
+    );
+  };
+
+  return (
+    <article
+      className="watchlist-item"
+      onMouseEnter={enterCard}
+      onMouseLeave={leaveCard}
+    >
+      {/* Top bar: title + total votes + remove button */}
+      <div className="watchlist-item-topbar">
+        {/*
+        The title acts as a tooltip target: hovering it shows the leading
+        party name via the native `title` attribute. For a richer experience
+        we also store it in a data attribute so CSS can surface it.
+      */}
+        <h3
+          className="watchlist-item-title"
+          title={`Leading: ${data.leadingParty}`}
+        >
+          <span className="watchlist-title-district">{data.districtName}</span>
+          <span className="watchlist-title-sep">-</span>
+          <span className="watchlist-title-id">{data.constituencyName}</span>
+          <span className="watchlist-title-leading-party">
+            {data.leadingParty}
+          </span>
+        </h3>
+        <span className="topbar-stat">
+          <span className="topbar-value">
+            {data.totalVotes.toLocaleString()}
+          </span>
+          <span className="topbar-label"> votes</span>
+        </span>
+        <button
+          className="watchlist-remove-btn"
+          onClick={() => onRemove(data.constituencyId)}
+          aria-label={`Remove ${data.districtName} - ${data.constituencyName} from watchlist`}
+        >
+          ✕
+        </button>
       </div>
-    </div>
-  </article>
-);
+
+      {/* Body: names on left, symbols + votes on right */}
+      <div className="watchlist-item-body">
+        {/* Left — top 3 candidate names */}
+        <ol className="watchlist-candidates-list">
+          {data.topCandidates.map((c) => {
+            const partyColor =
+              (colorMapping.parties as any)[c.party] || colorMapping.others;
+            return (
+              <li key={c.candidate_id} className="watchlist-candidate-name">
+                {/*
+                Dot: hovering highlights ALL constituencies belonging to
+                this party across the whole map (party-wide dimming effect).
+              */}
+                <span
+                  className="party-color-dot"
+                  style={{ backgroundColor: partyColor }}
+                  title={c.party}
+                  aria-label={c.party}
+                  onMouseEnter={() => enterParty(c.party)}
+                  onMouseLeave={() => leaveParty()}
+                />
+                {/*
+                Name text: hovering highlights only THIS candidate's
+                constituency on the map (single-constituency highlight).
+              */}
+                <span className="watchlist-candidate-name-text">
+                  {c.name_np}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* Right — 3 columns: symbol image + vote count */}
+        <div className="watchlist-symbols-row">
+          {data.topCandidates.map((c) => (
+            <div
+              key={c.candidate_id}
+              className="watchlist-symbol-col"
+              onMouseEnter={() => enterParty(c.party)}
+              onMouseLeave={() => leaveParty()}
+            >
+              {c.symbol_id && c.symbol_id !== 0 ? (
+                <img
+                  className="watchlist-symbol-img"
+                  src={`${SYMBOL_IMG_URL}/${c.symbol_id}.jpg`}
+                  alt={c.party}
+                  title={c.party}
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    const parent = (e.target as HTMLElement).parentElement;
+                    if (
+                      parent &&
+                      !parent.querySelector('.watchlist-symbol-fallback')
+                    ) {
+                      const fallback = document.createElement('div');
+                      fallback.className = 'watchlist-symbol-fallback';
+                      fallback.title = c.party || '';
+                      fallback.innerText = c.party?.slice(0, 2) || '??';
+                      parent.appendChild(fallback);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="watchlist-symbol-fallback" title={c.party}>
+                  {c.party?.slice(0, 2) || '??'}
+                </div>
+              )}
+              <span className="watchlist-symbol-votes">
+                {c.votes.toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-const Sidebar = forwardRef<SidebarRef, SidebarProps>(
-  ({ stats, candidates }, ref) => {
+const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
+  ({ stats, candidates, leadingCandidates, map }, ref) => {
+    const currentElection = getCurrentElection();
+
+    // ---- Incomplete Data Warning ----
+    const DataWarning = currentElection.missingData ? (
+      <div
+        className="data-warning-banner"
+        style={{
+          backgroundColor: 'rgba(255, 193, 7, 0.1)',
+          border: '1px solid #ffc107',
+          color: '#ffc107',
+          padding: '12px',
+          marginBottom: '16px',
+          borderRadius: '4px',
+          fontSize: '0.85rem',
+          lineHeight: '1.4',
+        }}
+      >
+        Symbol images for this year are unavailable from the source.
+      </div>
+    ) : null;
+
     // ---- Leaderboard ----
     const partyEntries = stats ? Object.entries(stats.partyStandings) : [];
     const sortedParties = [...partyEntries].sort(([, a], [, b]) => b - a);
@@ -423,19 +557,27 @@ const Sidebar = forwardRef<SidebarRef, SidebarProps>(
             String(topCandidates[0].district).length
           );
 
+          // Find the leading candidate for this constituency from the
+          // pre-computed leadingCandidates array (one per constituency).
+          const leader = leadingCandidates.find(
+            (c) => c.constituency_id === cId
+          );
+
           return {
             constituencyId: cId,
             districtName: dName,
             constituencyName: subId,
             topCandidates,
             totalVotes,
+            leadingParty: leader?.party ?? topCandidates[0]?.party ?? '—',
           };
         })
         .filter((card): card is WatchlistCardData => card !== null);
-    }, [watchedIds, candidates, districtNames]);
+    }, [watchedIds, candidates, leadingCandidates, districtNames]);
 
     return (
       <aside className="sidebar-map-panel">
+        {DataWarning}
         {/* Watchlist Section */}
         <div className="sidebar-section watchlist-section">
           <h2 id="watchlist-text">Your Watchlist</h2>
@@ -490,6 +632,8 @@ const Sidebar = forwardRef<SidebarRef, SidebarProps>(
                     key={card.constituencyId}
                     data={card}
                     onRemove={handleRemove}
+                    map={map}
+                    leadingCandidates={leadingCandidates}
                   />
                 ))
               )}
