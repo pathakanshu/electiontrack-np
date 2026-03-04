@@ -2,6 +2,59 @@ html {
   height: 100%;
 }
 
+/* ---- Election Switcher (in header) ---- */
+.heading-subrow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.heading-tracking-label {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.election-switcher {
+  background-color: #3a3a3a;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+  appearance: auto; /* keep native dropdown arrow */
+}
+
+.election-switcher:hover,
+.election-switcher:focus {
+  outline: none;
+  border-color: #ffd700;
+  background-color: #444;
+}
+
+.election-switcher option {
+  background-color: #2f2f2f;
+  color: #eee;
+}
+
+.heading-missing-data-badge {
+  font-size: 0.7rem;
+  color: #ffc107;
+  background-color: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+  white-space: nowrap;
+  cursor: help;
+}
+
 body {
   background-color: #2f2f2f;
   margin: 0;
@@ -205,6 +258,31 @@ nav {
   background: #666;
 }
 
+/* Leading party badge inside the watchlist card title */
+.watchlist-title-leading-party {
+  /* Hidden by default — only visible on hover of the title */
+  display: none;
+  margin-left: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: normal;
+  color: #ffd700;
+  background-color: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 3px;
+  padding: 0.05rem 0.35rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 8rem;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Show the badge when the user hovers the title */
+.watchlist-item-title:hover .watchlist-title-leading-party {
+  display: inline-block;
+}
+
 /* Watchlist Remove Button */
 .watchlist-remove-btn {
   width: 1.4rem;
@@ -360,6 +438,45 @@ nav {
   font-weight: bold;
 }
 
+.party-color-dot {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  margin-right: 0.4rem;
+  vertical-align: middle;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: crosshair;
+}
+
+.watchlist-candidate-name-text {
+  cursor: default;
+}
+
+.watchlist-candidate-name-text:hover {
+  color: #eee;
+  text-decoration: underline;
+  text-decoration-color: #555;
+  text-underline-offset: 2px;
+}
+
+.watchlist-symbol-fallback {
+  width: 2.625rem;
+  height: 2.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #333;
+  color: #888;
+  font-size: 0.75rem;
+  font-weight: bold;
+  border-radius: 0.25rem;
+  border: 1px dashed #555;
+  text-align: center;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
 /* Right: 3 symbol columns */
 .watchlist-symbols-row {
   display: flex;
@@ -372,6 +489,117 @@ nav {
   flex-direction: column;
   align-items: center;
   gap: 0.2rem;
+  cursor: crosshair;
+}
+
+/* ---- Color Index floating overlay ---- */
+.color-index-container {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.color-index-panel {
+  pointer-events: all;
+  background-color: rgba(30, 30, 30, 0.92);
+  backdrop-filter: blur(4px);
+  border: 1px solid #505050;
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  min-width: 14rem;
+}
+
+.color-index-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.color-index-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.color-index-panel::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 2px;
+}
+
+.color-index-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.color-index-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.color-index-others {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid #444;
+}
+
+.color-index-swatch {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.color-index-name {
+  font-size: 0.875rem;
+  color: #ddd;
+  white-space: nowrap;
+}
+
+.color-index-toggle {
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(30, 30, 30, 0.92);
+  backdrop-filter: blur(4px);
+  border: 1px solid #505050;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  color: #ddd;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.color-index-toggle:hover {
+  border-color: #ffd700;
+  background-color: rgba(50, 50, 50, 0.95);
+  color: #fff;
+}
+
+.color-index-toggle-label {
+  font-weight: 500;
+}
+
+.color-index-chevron {
+  color: currentColor;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.color-index-chevron-up {
+  transform: rotate(180deg);
 }
 
 .watchlist-symbol-img {
@@ -475,6 +703,55 @@ footer {
 }
 
 /* MapLibre Popup Styles */
+/* MapLibre control group — dark theme override */
+.maplibregl-ctrl-group {
+  background-color: rgba(30, 30, 30, 0.92) !important;
+  backdrop-filter: blur(4px);
+  border: 1px solid #505050 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+  overflow: hidden;
+}
+
+.maplibregl-ctrl-group button {
+  background-color: transparent !important;
+  color: #ddd !important;
+  border-bottom: 1px solid #505050 !important;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.maplibregl-ctrl-group button:last-child {
+  border-bottom: none !important;
+}
+
+.maplibregl-ctrl-group button:hover {
+  background-color: rgba(255, 215, 0, 0.1) !important;
+  color: #ffd700 !important;
+}
+
+/* Reset button specific */
+.maplibregl-ctrl-group button[aria-label='Reset view'] {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  font-family: Arial, sans-serif;
+  letter-spacing: 0.02em;
+  width: auto !important;
+  height: auto !important;
+  padding: 6px 12px !important;
+  white-space: nowrap;
+}
+
+/* Navigation control icons */
+.maplibregl-ctrl-icon {
+  filter: invert(1) brightness(0.8);
+}
+
+.maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1);
+}
+
 .maplibregl-popup-content {
   background-color: #ffffff;
   border-radius: 4px;
