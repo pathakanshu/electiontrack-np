@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Map as MapLibreMap } from 'maplibre-gl';
+import { Map as MapLibreMap, Popup } from 'maplibre-gl';
 import {
   createMap,
   addProvincesLayer,
@@ -12,6 +12,7 @@ interface ElectionMapProps {
   provinces: Province[];
   constituencies: Constituency[];
   leadingCandidates: Candidate[];
+  onConstituencyClick?: (constituencyId: number) => void;
 }
 
 /**
@@ -23,6 +24,7 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
   provinces,
   constituencies,
   leadingCandidates,
+  onConstituencyClick,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -38,6 +40,60 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
     // Cleanup on unmount
     return () => {
       map.remove();
+    };
+  }, []);
+
+  // 1.5. Add hover popup logic
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    const popup = new Popup({
+      closeButton: false,
+      closeOnClick: false,
+      className: 'constituency-popup',
+    });
+
+    const onMouseMove = (e: any) => {
+      if (e.features && e.features.length > 0) {
+        map.getCanvas().style.cursor = 'pointer';
+        const feature = e.features[0];
+        const { district_name, sub_id } = feature.properties;
+
+        const content = `${district_name || 'District ' + feature.properties.district_id} - ${sub_id}`;
+
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML(
+            `<div style="padding: 4px 8px; color: #000; font-weight: 600; font-family: sans-serif;">${content}</div>`
+          )
+          .addTo(map);
+      }
+    };
+
+    const onMouseLeave = () => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    };
+
+    const onClick = (e: any) => {
+      if (e.features && e.features.length > 0) {
+        const feature = e.features[0];
+        if (onConstituencyClick) {
+          onConstituencyClick(feature.id as number);
+        }
+      }
+    };
+
+    map.on('mousemove', 'constituencies-fill', onMouseMove);
+    map.on('mouseleave', 'constituencies-fill', onMouseLeave);
+    map.on('click', 'constituencies-fill', onClick);
+
+    return () => {
+      map.off('mousemove', 'constituencies-fill', onMouseMove);
+      map.off('mouseleave', 'constituencies-fill', onMouseLeave);
+      map.off('click', 'constituencies-fill', onClick);
+      popup.remove();
     };
   }, []);
 

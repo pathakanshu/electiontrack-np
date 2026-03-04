@@ -15,6 +15,7 @@ import { Province, Constituency } from '../types/election';
 export const useTopology = () => {
   const [data, setData] = useState<{
     provinces: Province[];
+    districts: any[];
     constituencies: Constituency[];
   } | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -28,9 +29,15 @@ export const useTopology = () => {
         const topo = await fetchTopology('/data/geometry.topo.json');
 
         /* Convert TopoJSON province data into GeoJSON FeatureCollection */
-        const provincesFC = feature<GeoJSON.MultiPolygon, Province['properties']>(
+        const provincesFC = feature<
+          GeoJSON.MultiPolygon,
+          Province['properties']
+        >(topo, 'provinces');
+
+        /* Convert TopoJSON district data into GeoJSON FeatureCollection */
+        const districtsFC = feature<GeoJSON.MultiPolygon, any>(
           topo,
-          'provinces'
+          'districts'
         );
 
         /* Convert TopoJSON constituency data into GeoJSON FeatureCollection */
@@ -41,9 +48,19 @@ export const useTopology = () => {
 
         // Map GeoJSON features into application-specific Province/Constituency types
         const provinces = provincesFC.features.map(toProvinceFeature);
-        const constituencies = constituenciesFC.features.map(toConstituencyFeature);
+        const districts = districtsFC.features;
+        const constituencies = constituenciesFC.features.map((f) => {
+          const c = toConstituencyFeature(f);
+          const district = districts.find(
+            (d) => d.properties.district_id === c.properties.district_id
+          );
+          if (district) {
+            c.properties.district_name = district.properties.name_np;
+          }
+          return c;
+        });
 
-        setData({ provinces, constituencies });
+        setData({ provinces, districts, constituencies });
       } catch (err) {
         console.error('[useTopology] Error loading geometry:', err);
         setError(

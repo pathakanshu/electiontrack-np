@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import Header from './components/layout/Header';
-import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
 import ElectionMap from './components/map/ElectionMap';
+import Sidebar, { SidebarRef } from './components/layout/Sidebar';
 import useElectionData from './hooks/useElectionData';
 import useTopology from './hooks/useTopology';
 import '../styles/main.css';
@@ -14,7 +14,9 @@ import '../styles/main.css';
  * It uses the useElectionData and useTopology hooks to handle the heavy lifting
  * of fetching live results and TopoJSON geometry respectively.
  */
-const App: React.FC = () => {
+const App = () => {
+  const sidebarRef = useRef<SidebarRef>(null);
+
   const {
     candidates,
     leadingCandidates,
@@ -56,10 +58,9 @@ const App: React.FC = () => {
         ) : (
           <>
             {/*
-              Sidebar will be updated next to consume these stats
-              for D3-powered visualizations and the live watchlist.
+              Sidebar handles the leaderboard and the live watchlist.
             */}
-            <Sidebar stats={stats} candidates={candidates} />
+            <Sidebar ref={sidebarRef} stats={stats} candidates={candidates} />
 
             {/*
               The ElectionMap handles the MapLibre instance and
@@ -69,6 +70,9 @@ const App: React.FC = () => {
               provinces={topology?.provinces || []}
               constituencies={topology?.constituencies || []}
               leadingCandidates={leadingCandidates}
+              onConstituencyClick={(id) =>
+                sidebarRef.current?.addOrMoveToTop(id)
+              }
             />
           </>
         )}

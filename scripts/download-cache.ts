@@ -3,6 +3,7 @@
  *
  * Download and cache election data locally.
  * This includes:
+ * - District lookup (ID, name, province) - downloaded from Election Commission API
  * - Symbol images (downloaded from Election Commission API)
  * - Symbols metadata (symbols.json)
  * - Constituency identifiers (constituencies.json)
@@ -22,6 +23,8 @@ import path from 'path';
 const ELECTION_CONFIG = {
   year: 2079,
   candidatesUrl: '/cache/ElectionResultCentral2079.txt',
+  districtLookupUrl:
+    'https://result.election.gov.np/JSONFiles/Election2079/Local/Lookup/districts.json',
   symbolImageBaseUrl: 'https://result.election.gov.np/Images/symbol-hor-pa',
 };
 
@@ -76,8 +79,43 @@ interface ConstituencyIdentifier {
 interface CandidateRecord {
   SymbolID: number;
   SymbolName: string;
-  DistrictCd: number;
   SCConstID: string;
+}
+
+/**
+ * Download district lookup from Election Commission API and cache it.
+ */
+async function downloadDistrictLookup(outputPath: string): Promise<void> {
+  try {
+    log('\n⬇️  Downloading district lookup...');
+    log(`   URL: ${ELECTION_CONFIG.districtLookupUrl}`);
+
+    const response = await fetch(ELECTION_CONFIG.districtLookupUrl);
+    if (!response.ok) {
+      throw new Error(
+        `HTTP ${response.status} ${response.statusText} when fetching district lookup`
+      );
+    }
+
+    const data = await response.json();
+
+    // Ensure it's an array
+    if (!Array.isArray(data)) {
+      throw new Error('District lookup data is not an array');
+    }
+
+    await fsPromises.mkdir(path.dirname(outputPath), { recursive: true });
+    await fsPromises.writeFile(outputPath, JSON.stringify(data, null, 2));
+
+    const size = await humanFileSize(outputPath);
+    log(
+      `✅ Downloaded and cached district lookup (${size}, ${data.length} districts)`
+    );
+  } catch (err) {
+    throw new Error(
+      `Failed to download district lookup: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 }
 
 /**
@@ -260,7 +298,11 @@ async function run() {
     const size = await humanFileSize(candidatesPath);
     log(`📦 Using candidates data: ${candidatesPath} (${size})`);
 
-    // Step 1: Extract symbols metadata
+    // Step 1: Download district lookup
+    const districtLookupPath = path.join(cacheDir, 'districtLookup.json');
+    await downloadDistrictLookup(districtLookupPath);
+
+    // Step 2: Extract symbols metadata
     log('\n📦 Processing symbols...');
     const symbols = await extractSymbols(candidatesPath);
     const symbolsJsonPath = path.join(cacheDir, 'symbols.json');
@@ -270,10 +312,10 @@ async function run() {
     );
     log(`✅ Saved ${symbols.length} symbols metadata to symbols.json`);
 
-    // Step 2: Download symbol images
+    // Step 3: Download symbol images
     await downloadSymbolImages(symbols, symbolsDir);
 
-    // Step 3: Extract and save constituency identifiers
+    // Step 4: Extract and save constituency identifiers
     const constituencyIds =
       await extractConstituencyIdentifiers(candidatesPath);
     const constituencyIdPath = path.join(cacheDir, 'constituencies.json');
@@ -290,10 +332,11 @@ async function run() {
       `\n✨ Cache download completed successfully in ${totalTime.toFixed(2)}s`
     );
     log('\n📝 Summary of generated files:');
+    log('   /public/cache/districtLookup.json');
     log('   /public/cache/symbols.json');
     log('   /public/cache/symbols/ (115 .jpg images)');
     log('   /public/cache/constituencies.json');
-    log('\nSymbol images are now cached locally for offline use.');
+    log('\nAll data is now cached locally for offline use.');
 
     process.exit(0);
   } catch (err) {
@@ -306,7 +349,7 @@ async function run() {
     errorLog('\nTroubleshooting tips:');
     errorLog(' - Ensure ElectionResultCentral2079.txt exists in /public/cache');
     errorLog(' - Check that /public/cache directory is writable');
-    errorLog(' - Verify internet connection for downloading symbol images');
+    errorLog(' - Verify internet connection for downloading data');
     process.exit(1);
   }
 }

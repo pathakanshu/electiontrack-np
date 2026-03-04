@@ -81,7 +81,6 @@ nav {
 .sidebar-section h2,
 .sidebar-section h3 {
   margin-top: 0;
-  margin-bottom: 0.5rem;
 }
 
 .watchlist-section {
@@ -208,9 +207,6 @@ nav {
 
 /* Watchlist Remove Button */
 .watchlist-remove-btn {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
   width: 1.4rem;
   height: 1.4rem;
   border: none;
@@ -222,6 +218,7 @@ nav {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
@@ -257,55 +254,140 @@ nav {
 .watchlist-content {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  flex: 1;
+  gap: 0.5rem;
 }
 
 .watchlist-item {
   background-color: #444;
-  padding: 0.75rem;
   border-radius: 6px;
+  overflow: hidden;
 }
 
-.watchlist-item-header {
+/* Combined top bar: title + total votes + remove button */
+.watchlist-item-topbar {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background-color: #3a3a3a;
+  border-bottom: 1px solid #505050;
 }
 
 .watchlist-item-title {
-  margin: 0;
-  font-size: 0.9rem;
-  font-weight: bold;
-}
-
-.party-tag {
-  font-size: 0.6rem;
-  background-color: #2f2f2f;
-  color: white;
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  text-transform: uppercase;
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.watchlist-item-details {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: baseline;
+  min-width: 0;
+  margin: 0;
   font-size: 0.8rem;
-  color: #ccc;
+  font-weight: bold;
+  color: #eee;
+  flex: 1;
+  overflow: hidden;
 }
 
-.detail-label {
-  margin-right: 0.5rem;
+/* District name truncates with ellipsis when space is tight */
+.watchlist-title-district {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+/* Separator and ID never truncate — always visible */
+.watchlist-title-sep {
+  flex-shrink: 0;
+  margin: 0 0.2rem;
   color: #888;
 }
 
-.detail-value {
-  font-weight: bold;
+.watchlist-title-id {
+  flex-shrink: 0;
   color: #eee;
+}
+
+/* Total votes stat in topbar */
+.topbar-stat {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.topbar-value {
+  color: #ddd;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.topbar-label {
+  color: #777;
+}
+
+/* Body: names left, symbols right */
+.watchlist-item-body {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  align-items: flex-start;
+}
+
+/* Left: top 3 candidate names */
+.watchlist-candidates-list {
+  flex: 1;
+  min-width: 0;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  counter-reset: candidate;
+}
+
+.watchlist-candidate-name {
+  font-size: 0.85rem;
+  color: #ccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  counter-increment: candidate;
+}
+
+.watchlist-candidate-name::before {
+  content: counter(candidate) '. ';
+  color: #888;
+  font-weight: bold;
+}
+
+/* Right: 3 symbol columns */
+.watchlist-symbols-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.watchlist-symbol-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.watchlist-symbol-img {
+  width: 2.625rem;
+  height: 2.625rem;
+  object-fit: contain;
+  border-radius: 0.25rem;
+  background-color: #3a3a3a;
+  padding: 0.125rem;
+}
+
+.watchlist-symbol-votes {
+  font-size: 0.6rem;
+  color: #aaa;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .hint-text {
@@ -390,4 +472,22 @@ footer {
   background-color: #333333;
   color: #eeeeee;
   padding: 1rem;
+}
+
+/* MapLibre Popup Styles */
+.maplibregl-popup-content {
+  background-color: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 0;
+  border: none;
+}
+
+.maplibregl-popup-tip {
+  border-top-color: #ffffff !important;
+  border-bottom-color: #ffffff !important;
+}
+
+.constituency-popup .maplibregl-popup-content {
+  pointer-events: none;
 }

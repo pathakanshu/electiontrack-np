@@ -85,6 +85,7 @@ export type Constituency = {
   properties: {
     constituency_id: number;
     district_id: number;
+    district_name?: string;
     sub_id: number;
     province_id: number;
     conservation_area: boolean;
