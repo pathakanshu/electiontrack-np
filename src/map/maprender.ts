@@ -31,11 +31,72 @@ const constituency_border_opacity = 1;
 /**
  * Create a basic MapLibre map instance with a minimal style.
  */
+const DEFAULT_CENTER: [number, number] = [84.116, 28.41];
+const DEFAULT_ZOOM = 6.25;
+
+/**
+ * Custom MapLibre control that flies the map back to the default
+ * center and zoom when clicked.
+ */
+class ResetViewControl {
+  private _map: Map | null = null;
+  private _container: HTMLElement | null = null;
+  private _btn: HTMLButtonElement | null = null;
+  private _onMove: (() => void) | null = null;
+
+  onAdd(map: Map): HTMLElement {
+    this._map = map;
+    this._container = document.createElement('div');
+    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+
+    const btn = document.createElement('button') as HTMLButtonElement;
+    btn.type = 'button';
+    btn.title = 'Reset view';
+    btn.setAttribute('aria-label', 'Reset view');
+    btn.textContent = 'Reset';
+    btn.style.display = 'none';
+    this._btn = btn;
+
+    btn.addEventListener('click', () => {
+      this._map?.flyTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM });
+    });
+
+    // Show the button whenever the view differs from the default;
+    // hide it again once a flyTo/reset lands back at the default.
+    this._onMove = () => {
+      if (!this._map || !this._btn) return;
+      const zoom = this._map.getZoom();
+      const center = this._map.getCenter();
+      const moved =
+        Math.abs(zoom - DEFAULT_ZOOM) > 0.05 ||
+        Math.abs(center.lng - DEFAULT_CENTER[0]) > 0.05 ||
+        Math.abs(center.lat - DEFAULT_CENTER[1]) > 0.05;
+      this._btn.style.display = moved ? '' : 'none';
+    };
+
+    map.on('moveend', this._onMove);
+
+    this._container.appendChild(btn);
+    return this._container;
+  }
+
+  onRemove(): void {
+    if (this._map && this._onMove) {
+      this._map.off('moveend', this._onMove);
+    }
+    this._container?.parentNode?.removeChild(this._container);
+    this._map = null;
+    this._container = null;
+    this._btn = null;
+    this._onMove = null;
+  }
+}
+
 export function createMap(containerID: string): Map {
   const map = new Map({
     container: containerID,
-    center: [84.116, 28.41],
-    zoom: 6.25,
+    center: DEFAULT_CENTER,
+    zoom: DEFAULT_ZOOM,
     style: {
       version: 8,
       sources: {},
@@ -46,7 +107,6 @@ export function createMap(containerID: string): Map {
           paint: {
             'background-color': background_color,
             'background-opacity': 0,
-            
           },
         },
       ],
@@ -54,6 +114,8 @@ export function createMap(containerID: string): Map {
     hash: false,
     attributionControl: false,
   });
+
+  map.addControl(new ResetViewControl(), 'top-right');
 
   return map;
 }
@@ -133,25 +195,20 @@ export function addDistrictsLayer(map: Map, districts: District[]) {
 /**
  * Add constituencies as a GeoJSON source and layers.
  *
- * Important:
- * - Ensure every feature has an `id` equal to `properties.constituency_id`
- *   so that `map.setFeatureState({ source: 'constituencies', id }, state)`
- *   targets the correct feature.
- * - The fill layer's `fill-color` expression prefers `feature-state.color`,
- *   then a data property `color` (if present), then a default color.
+ * The fill layer uses feature-state `dimmed` to dim non-highlighted
+ * constituencies during hover interactions.
  */
-
 export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
   const geojson = {
     type: 'FeatureCollection' as const,
-    features: constituencies.map((f, i) => ({
+    features: constituencies.map((f) => ({
       type: 'Feature' as const,
       id: f.properties.constituency_id,
       geometry: f.geometry,
       properties: { ...f.properties },
     })),
   };
-  console.log(geojson.features);
+
   // sanity check
   geojson.features.forEach((f) => {
     if (!f.id) console.warn('Feature missing id!', f);
@@ -173,7 +230,14 @@ export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
         ['get', 'color'],
         constituency_fill_color,
       ],
-      'fill-opacity': constituency_fill_opacity,
+      // Dim non-highlighted constituencies to 0.15 opacity when a highlight
+      // is active; otherwise render at full opacity.
+      'fill-opacity': [
+        'case',
+        ['boolean', ['feature-state', 'dimmed'], false],
+        0.15,
+        constituency_fill_opacity,
+      ],
     },
   });
 
@@ -195,16 +259,52 @@ export function setConstituencyColor(
   color: string
 ) {
   if (!map.getSource('constituencies') || !map.isStyleLoaded()) {
-    // Retry after the map is idle (source + layers fully loaded)
     map.once('idle', () => setConstituencyColor(map, constituencyId, color));
     return;
   }
 
-  // setFeatureState works on the source directly, no need to check rendered features
   map.setFeatureState(
     { source: 'constituencies', id: constituencyId },
     { color }
   );
+}
+
+/**
+ * Highlight a specific set of constituency IDs and dim all others.
+ *
+ * @param map             - The MapLibre instance
+ * @param highlightIds    - Set of constituency_ids to keep at full opacity
+ * @param allCandidates   - All leading candidates (one per constituency),
+ *                          used to know which feature IDs exist in the source
+ */
+export function highlightConstituencies(
+  map: Map,
+  highlightIds: Set<number>,
+  allCandidates: Candidate[]
+) {
+  if (!map.getSource('constituencies')) return;
+
+  for (const candidate of allCandidates) {
+    const dimmed = !highlightIds.has(candidate.constituency_id);
+    map.setFeatureState(
+      { source: 'constituencies', id: candidate.constituency_id },
+      { dimmed }
+    );
+  }
+}
+
+/**
+ * Clear all highlight/dim state, restoring every constituency to full opacity.
+ */
+export function clearHighlights(map: Map, allCandidates: Candidate[]) {
+  if (!map.getSource('constituencies')) return;
+
+  for (const candidate of allCandidates) {
+    map.setFeatureState(
+      { source: 'constituencies', id: candidate.constituency_id },
+      { dimmed: false }
+    );
+  }
 }
 
 /**
@@ -217,11 +317,9 @@ export function clearConstituencyColor(map: Map, constituencyId: number) {
       { color: undefined }
     );
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.warn('clearConstituencyColor failed for', constituencyId, e);
   }
 }
-
 
 export async function colorConstituenciesByVotes(
   map: Map,

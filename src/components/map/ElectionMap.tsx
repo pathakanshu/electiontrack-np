@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
+import ColorIndex from './ColorIndex';
 import { Map as MapLibreMap, Popup } from 'maplibre-gl';
 import {
   createMap,
@@ -13,6 +14,7 @@ interface ElectionMapProps {
   constituencies: Constituency[];
   leadingCandidates: Candidate[];
   onConstituencyClick?: (constituencyId: number) => void;
+  onMapLoaded?: (map: MapLibreMap) => void;
 }
 
 /**
@@ -25,9 +27,31 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
   constituencies,
   leadingCandidates,
   onConstituencyClick,
+  onMapLoaded,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+
+  // Keep a stable ref to leadingCandidates so the popup effect can read
+  // the latest value without needing to re-register map event listeners.
+  const leadingCandidatesRef = useRef<Candidate[]>(leadingCandidates);
+  useEffect(() => {
+    leadingCandidatesRef.current = leadingCandidates;
+  }, [leadingCandidates]);
+
+  // Build a lookup map: constituency_id → leading Candidate for O(1) access
+  const leadingByConstituency = useMemo(() => {
+    const m = new Map<number, Candidate>();
+    for (const c of leadingCandidates) {
+      m.set(c.constituency_id, c);
+    }
+    return m;
+  }, [leadingCandidates]);
+
+  const leadingByConstituencyRef = useRef(leadingByConstituency);
+  useEffect(() => {
+    leadingByConstituencyRef.current = leadingByConstituency;
+  }, [leadingByConstituency]);
 
   // 1. Initialize the Map instance on mount
   useEffect(() => {
@@ -36,6 +60,10 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
     // Use the ID of the container div as defined in the DOM
     const map = createMap(mapContainerRef.current.id);
     mapRef.current = map;
+
+    if (onMapLoaded) {
+      onMapLoaded(map);
+    }
 
     // Cleanup on unmount
     return () => {
@@ -58,16 +86,26 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
       if (e.features && e.features.length > 0) {
         map.getCanvas().style.cursor = 'pointer';
         const feature = e.features[0];
-        const { district_name, sub_id } = feature.properties;
+        const { district_name, sub_id, constituency_id } = feature.properties;
 
-        const content = `${district_name || 'District ' + feature.properties.district_id} - ${sub_id}`;
+        let html: string;
+        if (constituency_id === 5999) {
+          html = `<div style="padding:4px 8px;color:#000;font-weight:600;font-family:sans-serif;">संरक्षण क्षेत्र</div>`;
+        } else {
+          const header = `${district_name || 'District ' + feature.properties.district_id} - ${sub_id}`;
+          const leader = leadingByConstituencyRef.current.get(
+            Number(constituency_id)
+          );
+          const leaderLine = leader
+            ? `<div style="font-size:0.78rem;color:#333;margin-top:2px;">${leader.name_np} · ${leader.party}</div>`
+            : '';
+          html = `<div style="padding:4px 8px;font-family:sans-serif;">
+            <div style="font-weight:600;color:#000;">${header}</div>
+            ${leaderLine}
+          </div>`;
+        }
 
-        popup
-          .setLngLat(e.lngLat)
-          .setHTML(
-            `<div style="padding: 4px 8px; color: #000; font-weight: 600; font-family: sans-serif;">${content}</div>`
-          )
-          .addTo(map);
+        popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
       }
     };
 
@@ -150,12 +188,13 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
   }, [leadingCandidates]);
 
   return (
-    <div className="map-container">
+    <div className="map-container" style={{ position: 'relative' }}>
       <div
         id="map"
         ref={mapContainerRef}
         style={{ width: '100%', height: '100%' }}
       />
+      <ColorIndex leadingCandidates={leadingCandidates} />
     </div>
   );
 };
