@@ -41,20 +41,29 @@ export async function fetchConstituencies(districtId: number) {
 }
 
 /**
- * Fetch district identifiers from the current election's cache.
+ * Fetch district lookup data (ID, name, parent province) from the current election.
  * Returns array of { id, name, parentId } objects.
  */
-export async function fetchDistrictIdentifiers() {
+export async function fetchDistrictLookup() {
   const election = getCurrentElection();
-  const url = election.endpoints.districtIdentifiers;
+  const url = election.endpoints.districtLookup;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(
-      `Failed to fetch district identifiers: ${res.status} ${res.statusText}`
+      `Failed to fetch district lookup: ${res.status} ${res.statusText}`
     );
   }
   const data = await res.json();
   return data;
+}
+
+/**
+ * Fetch district identifiers from the current election's lookup.
+ * This is an alias for fetchDistrictLookup for backward compatibility.
+ * Returns array of { id, name, parentId } objects.
+ */
+export async function fetchDistrictIdentifiers() {
+  return fetchDistrictLookup();
 }
 
 /**
