@@ -1,17 +1,14 @@
 /**
  * scripts/download-cache.ts
  *
- * Download and cache election data files locally.
+ * Download and cache election data locally.
  * This includes:
- * - District identifiers (districts.json)
+ * - Symbol images (downloaded from Election Commission API)
+ * - Symbols metadata (symbols.json)
  * - Constituency identifiers (constituencies.json)
- * - Party symbols (symbols.json)
  *
  * Run with:
  *   npx ts-node scripts/download-cache.ts
- *
- * Configuration is hardcoded here; update the ELECTION_YEAR and URLs below
- * to download data for different elections.
  */
 
 import fs from 'fs';
@@ -24,9 +21,8 @@ import path from 'path';
  */
 const ELECTION_CONFIG = {
   year: 2079,
-  candidatesUrl: '/cache/ElectionResultCentral2079.txt', // Local cache (already exists)
-  // If you want to download from remote instead, use:
-  // candidatesUrl: 'https://result.election.gov.np/JSONFiles/ElectionResultCentral2079.txt',
+  candidatesUrl: '/cache/ElectionResultCentral2079.txt',
+  symbolImageBaseUrl: 'https://result.election.gov.np/Images/symbol-hor-pa',
 };
 
 function now(): string {
@@ -72,11 +68,6 @@ interface Symbol {
   symbolName: string;
 }
 
-interface DistrictIdentifier {
-  distId: number;
-  consts: number;
-}
-
 interface ConstituencyIdentifier {
   distId: number;
   consts: number;
@@ -86,8 +77,6 @@ interface CandidateRecord {
   SymbolID: number;
   SymbolName: string;
   DistrictCd: number;
-  DistrictName: string;
-  State: number;
   SCConstID: string;
 }
 
@@ -105,8 +94,7 @@ async function extractSymbols(candidatesPath: string): Promise<Symbol[]> {
       throw new Error('Candidates data is not an array');
     }
 
-    // Use a Map to deduplicate symbols by ID
-    const symbolMap = new Map<number, Symbol>();
+    const symbolMap = new Map<number, string>();
 
     for (const candidate of candidates) {
       const symbolId = candidate.SymbolID;
@@ -114,17 +102,14 @@ async function extractSymbols(candidatesPath: string): Promise<Symbol[]> {
 
       if (typeof symbolId === 'number' && typeof symbolName === 'string') {
         if (!symbolMap.has(symbolId)) {
-          symbolMap.set(symbolId, {
-            symbolId,
-            symbolName,
-          });
+          symbolMap.set(symbolId, symbolName);
         }
       }
     }
 
-    const symbols = Array.from(symbolMap.values()).sort(
-      (a, b) => a.symbolId - b.symbolId
-    );
+    const symbols = Array.from(symbolMap.entries())
+      .map(([symbolId, symbolName]) => ({ symbolId, symbolName }))
+      .sort((a, b) => a.symbolId - b.symbolId);
 
     log(`✅ Extracted ${symbols.length} unique symbols`);
     return symbols;
@@ -134,69 +119,77 @@ async function extractSymbols(candidatesPath: string): Promise<Symbol[]> {
 }
 
 /**
- * Extract district identifiers from candidates data.
- * Returns array of { distId, consts } (district ID and constituency count).
+ * Download symbol images from Election Commission API.
  */
-async function extractDistrictIdentifiers(
-  candidatesPath: string
-): Promise<DistrictIdentifier[]> {
+async function downloadSymbolImages(
+  symbols: Symbol[],
+  outputDir: string
+): Promise<void> {
   try {
-    log('🔍 Extracting district identifiers from candidates data...');
+    log(`\n⬇️  Downloading ${symbols.length} symbol images...`);
+    log(`   Destination: ${outputDir}`);
 
-    const text = await fsPromises.readFile(candidatesPath, 'utf8');
-    const candidates = JSON.parse(text);
+    await fsPromises.mkdir(outputDir, { recursive: true });
 
-    if (!Array.isArray(candidates)) {
-      throw new Error('Candidates data is not an array');
-    }
+    let downloaded = 0;
+    let failed = 0;
 
-    // Map to track { districtId -> Set of constituencies }
-    const districtMap = new Map<number, Set<number>>();
+    for (const symbol of symbols) {
+      const imageUrl = `${ELECTION_CONFIG.symbolImageBaseUrl}/${symbol.symbolId}.jpg`;
+      const imagePath = path.join(outputDir, `${symbol.symbolId}.jpg`);
 
-    for (const candidate of candidates) {
-      const districtId = candidate.DistrictCd;
-      const constituencyId = candidate.SCConstID;
-
-      if (typeof districtId === 'number' && constituencyId != null) {
-        const constId =
-          typeof constituencyId === 'string'
-            ? parseInt(constituencyId, 10)
-            : constituencyId;
-        if (!isNaN(constId)) {
-          if (!districtMap.has(districtId)) {
-            districtMap.set(districtId, new Set());
-          }
-          districtMap.get(districtId)!.add(constId);
+      try {
+        // Check if already cached
+        if (await fileExists(imagePath)) {
+          downloaded++;
+          continue;
         }
+
+        const response = await fetch(imageUrl);
+        if (!response.ok) {
+          errorLog(
+            `   ⚠️  Failed to download symbol ${symbol.symbolId}: HTTP ${response.status}`
+          );
+          failed++;
+          continue;
+        }
+
+        const buffer = await response.arrayBuffer();
+        await fsPromises.writeFile(imagePath, Buffer.from(buffer));
+        downloaded++;
+
+        if (downloaded % 10 === 0) {
+          log(`   ⏳ Downloaded ${downloaded}/${symbols.length} symbols...`);
+        }
+      } catch (err) {
+        errorLog(
+          `   ⚠️  Error downloading symbol ${symbol.symbolId}: ${err instanceof Error ? err.message : String(err)}`
+        );
+        failed++;
       }
     }
 
-    // Convert to array format: { distId, consts }
-    const districts = Array.from(districtMap.entries())
-      .map(([distId, constSet]) => ({
-        distId,
-        consts: constSet.size,
-      }))
-      .sort((a, b) => a.distId - b.distId);
-
-    log(`✅ Extracted ${districts.length} districts with constituency counts`);
-    return districts;
+    log(`✅ Downloaded ${downloaded} symbol images`);
+    if (failed > 0) {
+      log(
+        `⚠️  Failed to download ${failed} images (they may not be available)`
+      );
+    }
   } catch (err) {
     throw new Error(
-      `Failed to extract district identifiers: ${(err as Error).message}`
+      `Failed to download symbol images: ${(err as Error).message}`
     );
   }
 }
 
 /**
  * Extract constituency identifiers from candidates data.
- * Returns array of { distId, consts } (district ID and consecutive constituency number).
  */
 async function extractConstituencyIdentifiers(
   candidatesPath: string
 ): Promise<ConstituencyIdentifier[]> {
   try {
-    log('🔍 Extracting constituency identifiers from candidates data...');
+    log('\n🔍 Extracting constituency identifiers from candidates data...');
 
     const text = await fsPromises.readFile(candidatesPath, 'utf8');
     const candidates = JSON.parse(text);
@@ -205,7 +198,6 @@ async function extractConstituencyIdentifiers(
       throw new Error('Candidates data is not an array');
     }
 
-    // Set to track unique { distId, consts } pairs
     const constituencySet = new Set<string>();
 
     for (const candidate of candidates) {
@@ -248,6 +240,8 @@ async function run() {
 
   try {
     const cacheDir = path.join(process.cwd(), 'public', 'cache');
+    const symbolsDir = path.join(cacheDir, 'symbols');
+
     await fsPromises.mkdir(cacheDir, { recursive: true });
 
     const candidatesPath = path.join(
@@ -255,38 +249,31 @@ async function run() {
       `ElectionResultCentral${ELECTION_CONFIG.year}.txt`
     );
 
-    // Check if candidates file exists
     const candidatesExist = await fileExists(candidatesPath);
     if (!candidatesExist) {
       throw new Error(
         `Candidates file not found at ${candidatesPath}\n` +
-          'Please download the candidates data first using:\n' +
-          `  curl -o ${candidatesPath} "${ELECTION_CONFIG.candidatesUrl}"`
+          'Please download the candidates data first.'
       );
     }
 
     const size = await humanFileSize(candidatesPath);
     log(`📦 Using candidates data: ${candidatesPath} (${size})`);
 
-    // Step 1: Extract and save symbols
+    // Step 1: Extract symbols metadata
     log('\n📦 Processing symbols...');
     const symbols = await extractSymbols(candidatesPath);
-    const symbolsPath = path.join(cacheDir, 'symbols.json');
-    await fsPromises.writeFile(symbolsPath, JSON.stringify(symbols, null, 2));
-    log(`✅ Saved ${symbols.length} symbols to symbols.json`);
-
-    // Step 2: Extract and save district identifiers
-    log('\n📦 Processing district identifiers...');
-    const districtIds = await extractDistrictIdentifiers(candidatesPath);
-    const districtIdPath = path.join(cacheDir, 'districts.json');
+    const symbolsJsonPath = path.join(cacheDir, 'symbols.json');
     await fsPromises.writeFile(
-      districtIdPath,
-      JSON.stringify(districtIds, null, 2)
+      symbolsJsonPath,
+      JSON.stringify(symbols, null, 2)
     );
-    log(`✅ Saved ${districtIds.length} districts to districts.json`);
+    log(`✅ Saved ${symbols.length} symbols metadata to symbols.json`);
+
+    // Step 2: Download symbol images
+    await downloadSymbolImages(symbols, symbolsDir);
 
     // Step 3: Extract and save constituency identifiers
-    log('\n📦 Processing constituency identifiers...');
     const constituencyIds =
       await extractConstituencyIdentifiers(candidatesPath);
     const constituencyIdPath = path.join(cacheDir, 'constituencies.json');
@@ -304,9 +291,9 @@ async function run() {
     );
     log('\n📝 Summary of generated files:');
     log('   /public/cache/symbols.json');
-    log('   /public/cache/districts.json');
+    log('   /public/cache/symbols/ (115 .jpg images)');
     log('   /public/cache/constituencies.json');
-    log('\nThese files are used by the app to optimize data loading.');
+    log('\nSymbol images are now cached locally for offline use.');
 
     process.exit(0);
   } catch (err) {
@@ -319,7 +306,7 @@ async function run() {
     errorLog('\nTroubleshooting tips:');
     errorLog(' - Ensure ElectionResultCentral2079.txt exists in /public/cache');
     errorLog(' - Check that /public/cache directory is writable');
-    errorLog(' - Verify the candidates file is valid JSON');
+    errorLog(' - Verify internet connection for downloading symbol images');
     process.exit(1);
   }
 }

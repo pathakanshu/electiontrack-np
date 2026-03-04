@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import uFuzzy from '@leeoniya/ufuzzy';
 import { ElectionStats } from '../../hooks/useElectionData';
 import { Candidate } from '../../types/election';
@@ -13,6 +20,10 @@ interface SidebarProps {
   candidates: Candidate[];
 }
 
+export interface SidebarRef {
+  addOrMoveToTop: (id: number) => void;
+}
+
 /** A single entry in the flat search haystack. */
 interface SearchEntry {
   /** The display string that gets searched against. */
@@ -25,12 +36,16 @@ interface SearchEntry {
   constituencyId: number;
 }
 
+/** URL pattern for cached party symbol images. */
+const SYMBOL_IMG_URL = '/cache/symbols';
+
 /** Resolved data for a watchlist constituency card. */
 interface WatchlistCardData {
   constituencyId: number;
   districtName: string;
   constituencyName: string;
-  leader: Candidate;
+  /** Top 3 candidates sorted by votes descending. */
+  topCandidates: Candidate[];
   totalVotes: number;
 }
 
@@ -59,7 +74,7 @@ const uf = new uFuzzy({
 });
 
 /** Maximum number of results shown in the dropdown. */
-const MAX_RESULTS = 10;
+const MAX_RESULTS = 20;
 
 /**
  * When uFuzzy's filter phase returns more matches than this, we skip its
@@ -77,6 +92,29 @@ const RANK_LIMIT = 1000;
  * Run the full uFuzzy pipeline manually (filter → pre-sort → cap → info → sort)
  * so that ranking is always correct regardless of result count.
  */
+/**
+ * Score how well a haystack string matches the needle as a prefix.
+ *
+ * Returns a number where **lower is better**:
+ *   0 — the label starts with the full needle (best)
+ *   1 — the first *word* of the label starts with the needle
+ *   2 — the needle appears somewhere inside the label
+ *   3 — no straightforward prefix relationship (pure fuzzy match)
+ *
+ * Within tiers 0 and 1 shorter labels are preferred so that
+ * "काठमाडौं - 1" (close match) beats "काठमाडौंको …" (longer noise).
+ */
+function prefixScore(label: string, needle: string): number {
+  const ll = label.toLowerCase();
+  const nl = needle.toLowerCase();
+  if (ll.startsWith(nl)) return 0;
+  // Check first word (everything before the first space / separator)
+  const firstWord = ll.split(/[\s\-–—]+/)[0];
+  if (firstWord.startsWith(nl)) return 1;
+  if (ll.includes(nl)) return 2;
+  return 3;
+}
+
 function rankedSearch(haystack: string[], needle: string): number[] {
   const trimmed = needle.trim();
   if (!trimmed || haystack.length === 0) return [];
@@ -86,11 +124,12 @@ function rankedSearch(haystack: string[], needle: string): number[] {
   if (!idxs || idxs.length === 0) return [];
 
   // Step 2: cheap pre-sort — prefix matches bubble to top so they survive the cap
-  const needleLower = trimmed.toLowerCase();
   idxs.sort((a, b) => {
-    const aPrefix = haystack[a].toLowerCase().startsWith(needleLower) ? 0 : 1;
-    const bPrefix = haystack[b].toLowerCase().startsWith(needleLower) ? 0 : 1;
-    return aPrefix - bPrefix;
+    const pa = prefixScore(haystack[a], trimmed);
+    const pb = prefixScore(haystack[b], trimmed);
+    if (pa !== pb) return pa - pb;
+    // Within the same prefix tier, prefer shorter labels (closer match)
+    return haystack[a].length - haystack[b].length;
   });
 
   // Step 3: cap to avoid sorting thousands of entries
@@ -98,12 +137,23 @@ function rankedSearch(haystack: string[], needle: string): number[] {
     idxs = idxs.slice(0, RANK_LIMIT);
   }
 
-  // Step 4: detailed info + proper ranking
+  // Step 4: detailed info + uFuzzy ranking
   const info = uf.info(idxs, haystack, trimmed);
   const order = uf.sort(info, haystack, trimmed);
 
-  // Map sort order back to haystack indices
-  return order.map((i) => info.idx[i]);
+  // Step 5: re-sort by prefix closeness so that type-agnostic prefix
+  // matches always beat pure fuzzy matches, regardless of uFuzzy's
+  // internal scoring which can't distinguish "का" → "काठमाडौं" from
+  // "का" → "कपिल" when both start at position 0 with 0 insertions.
+  const ranked = order.map((i) => info.idx[i]);
+  ranked.sort((a, b) => {
+    const pa = prefixScore(haystack[a], trimmed);
+    const pb = prefixScore(haystack[b], trimmed);
+    if (pa !== pb) return pa - pb;
+    return haystack[a].length - haystack[b].length;
+  });
+
+  return ranked;
 }
 
 // ---------------------------------------------------------------------------
@@ -130,37 +180,70 @@ const SearchResultItem: React.FC<{
 
 /**
  * Renders an individual constituency card in the user's watchlist.
- * This is the original card design: district - constituency title,
- * party tag, leading candidate name, and total votes.
+ *
+ * Layout:
+ *  ┌─ header: "District - N"  ✕ ──────────────┐
+ *  │  left: candidate names │ right: 3 symbols │
+ *  │   1. Name              │  🔶  🔷  🔶     │
+ *  │   2. Name              │ votes votes votes │
+ *  │   3. Name              │                   │
+ *  ├─ bottom bar ──────────────────────────────┤
+ *  │  Total votes: X                            │
+ *  └────────────────────────────────────────────┘
  */
 const WatchlistItem: React.FC<{
   data: WatchlistCardData;
   onRemove: (constituencyId: number) => void;
 }> = ({ data, onRemove }) => (
-  <article className="watchlist-item" style={{ position: 'relative' }}>
-    <div className="watchlist-item-header">
+  <article className="watchlist-item">
+    {/* Top bar: title + total votes + remove button */}
+    <div className="watchlist-item-topbar">
       <h3 className="watchlist-item-title">
-        {data.districtName} - {data.constituencyName}
+        <span className="watchlist-title-district">{data.districtName}</span>
+        <span className="watchlist-title-sep">-</span>
+        <span className="watchlist-title-id">{data.constituencyName}</span>
       </h3>
-      <span className="party-tag">{data.leader.party}</span>
+      <span className="topbar-stat">
+        <span className="topbar-value">{data.totalVotes.toLocaleString()}</span>
+        <span className="topbar-label"> votes</span>
+      </span>
+      <button
+        className="watchlist-remove-btn"
+        onClick={() => onRemove(data.constituencyId)}
+        aria-label={`Remove ${data.districtName} - ${data.constituencyName} from watchlist`}
+      >
+        ✕
+      </button>
     </div>
-    <div className="watchlist-item-details">
-      <div className="watchlist-item-detail">
-        <span className="detail-label">Leading:</span>
-        <span className="detail-value">{data.leader.name_np}</span>
-      </div>
-      <div className="watchlist-item-detail">
-        <span className="detail-label">Votes:</span>
-        <span className="detail-value">{data.totalVotes.toLocaleString()}</span>
+
+    {/* Body: names on left, symbols + votes on right */}
+    <div className="watchlist-item-body">
+      {/* Left — top 3 candidate names */}
+      <ol className="watchlist-candidates-list">
+        {data.topCandidates.map((c) => (
+          <li key={c.candidate_id} className="watchlist-candidate-name">
+            {c.name_np}
+          </li>
+        ))}
+      </ol>
+
+      {/* Right — 3 columns: symbol image + vote count */}
+      <div className="watchlist-symbols-row">
+        {data.topCandidates.map((c) => (
+          <div key={c.candidate_id} className="watchlist-symbol-col">
+            <img
+              className="watchlist-symbol-img"
+              src={`${SYMBOL_IMG_URL}/${c.symbol_id}.jpg`}
+              alt={c.party}
+              loading="lazy"
+            />
+            <span className="watchlist-symbol-votes">
+              {c.votes.toLocaleString()}
+            </span>
+          </div>
+        ))}
       </div>
     </div>
-    <button
-      className="watchlist-remove-btn"
-      onClick={() => onRemove(data.constituencyId)}
-      aria-label={`Remove ${data.districtName} - ${data.constituencyName} from watchlist`}
-    >
-      ✕
-    </button>
   </article>
 );
 
@@ -168,239 +251,274 @@ const WatchlistItem: React.FC<{
 // Main component
 // ---------------------------------------------------------------------------
 
-const Sidebar: React.FC<SidebarProps> = ({ stats, candidates }) => {
-  // ---- Leaderboard ----
-  const partyEntries = stats ? Object.entries(stats.partyStandings) : [];
-  const sortedParties = [...partyEntries].sort(([, a], [, b]) => b - a);
-  const topFive = sortedParties.slice(0, 5);
+const Sidebar = forwardRef<SidebarRef, SidebarProps>(
+  ({ stats, candidates }, ref) => {
+    // ---- Leaderboard ----
+    const partyEntries = stats ? Object.entries(stats.partyStandings) : [];
+    const sortedParties = [...partyEntries].sort(([, a], [, b]) => b - a);
+    const topFive = sortedParties.slice(0, 5);
 
-  // ---- District name map (fetched once) ----
-  const [districtNames, setDistrictNames] = useState<Record<number, string>>(
-    {}
-  );
+    // ---- District name map (fetched once) ----
+    const [districtNames, setDistrictNames] = useState<Record<number, string>>(
+      {}
+    );
 
-  useEffect(() => {
-    getDistrictIdentifiers().then((ids) => {
-      const map: Record<number, string> = {};
-      for (const d of ids) {
-        map[d.id] = d.name;
+    useEffect(() => {
+      getDistrictIdentifiers().then((ids) => {
+        const map: Record<number, string> = {};
+        for (const d of ids) {
+          map[d.id] = d.name;
+        }
+        setDistrictNames(map);
+      });
+    }, []);
+
+    // ---- Search state ----
+    const [query, setQuery] = useState('');
+    const [showResults, setShowResults] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // ---- Watchlist state (persisted in localStorage) ----
+    const WATCHLIST_KEY = 'electiontrack-watchlist';
+    const [watchedIds, setWatchedIds] = useState<number[]>(() => {
+      try {
+        const stored = localStorage.getItem(WATCHLIST_KEY);
+        return stored ? JSON.parse(stored) : [];
+      } catch {
+        return [];
       }
-      setDistrictNames(map);
     });
-  }, []);
 
-  // ---- Search state ----
-  const [query, setQuery] = useState('');
-  const [showResults, setShowResults] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // ---- Watchlist state ----
-  const [watchedIds, setWatchedIds] = useState<number[]>([]);
-
-  /**
-   * Build the search haystack from candidates.
-   *
-   * Two kinds of entries:
-   *  - Candidate entries (name_np as label)
-   *  - Constituency entries (deduplicated, "District - #N" as label)
-   *
-   * Both map back to a constituency_id so clicking either adds the
-   * constituency card to the watchlist.
-   */
-  const { entries, haystack } = useMemo(() => {
-    const entries: SearchEntry[] = [];
-
-    // Candidate entries
-    for (const c of candidates) {
-      entries.push({
-        label: c.name_np,
-        meta: `${c.party} · ${c.votes.toLocaleString()} votes`,
-        type: 'candidate',
-        constituencyId: c.constituency_id,
-      });
-    }
-
-    // Constituency entries (one per unique constituency_id)
-    const seenConstituencies = new Set<number>();
-    for (const c of candidates) {
-      if (seenConstituencies.has(c.constituency_id)) continue;
-      seenConstituencies.add(c.constituency_id);
-
-      const dName = districtNames[c.district] || `District ${c.district}`;
-      // Extract the sub-constituency number from the composite ID
-      const subId = String(c.constituency_id).slice(String(c.district).length);
-
-      entries.push({
-        label: `${dName} - ${subId}`,
-        meta: `Constituency`,
-        type: 'constituency',
-        constituencyId: c.constituency_id,
-      });
-    }
-
-    const haystack = entries.map((e) => e.label);
-    return { entries, haystack };
-  }, [candidates, districtNames]);
-
-  /**
-   * Run the ranked uFuzzy search whenever the query changes.
-   */
-  const results = useMemo<SearchEntry[]>(() => {
-    const trimmed = query.trim();
-    if (!trimmed || haystack.length === 0) return [];
-
-    const orderedIdxs = rankedSearch(haystack, trimmed);
-    return orderedIdxs.slice(0, MAX_RESULTS).map((i) => entries[i]);
-  }, [query, haystack, entries]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setShowResults(false);
+    useEffect(() => {
+      try {
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchedIds));
+      } catch {
+        // localStorage full or unavailable — silently ignore
       }
+    }, [watchedIds]);
+
+    /**
+     * Build the search haystack from candidates.
+     *
+     * Two kinds of entries:
+     *  - Candidate entries (name_np as label)
+     *  - Constituency entries (deduplicated, "District - #N" as label)
+     *
+     * Both map back to a constituency_id so clicking either adds the
+     * constituency card to the watchlist.
+     */
+    const { entries, haystack } = useMemo(() => {
+      const entries: SearchEntry[] = [];
+
+      // Candidate entries
+      for (const c of candidates) {
+        entries.push({
+          label: c.name_np,
+          meta: `${c.party} · ${c.votes.toLocaleString()} votes`,
+          type: 'candidate',
+          constituencyId: c.constituency_id,
+        });
+      }
+
+      // Constituency entries (one per unique constituency_id)
+      const seenConstituencies = new Set<number>();
+      for (const c of candidates) {
+        if (seenConstituencies.has(c.constituency_id)) continue;
+        seenConstituencies.add(c.constituency_id);
+
+        const dName = districtNames[c.district] || `District ${c.district}`;
+        // Extract the sub-constituency number from the composite ID
+        const subId = String(c.constituency_id).slice(
+          String(c.district).length
+        );
+
+        entries.push({
+          label: `${dName} - ${subId}`,
+          meta: `Constituency`,
+          type: 'constituency',
+          constituencyId: c.constituency_id,
+        });
+      }
+
+      const haystack = entries.map((e) => e.label);
+      return { entries, haystack };
+    }, [candidates, districtNames]);
+
+    /**
+     * Run the ranked uFuzzy search whenever the query changes.
+     */
+    const results = useMemo<SearchEntry[]>(() => {
+      const trimmed = query.trim();
+      if (!trimmed || haystack.length === 0) return [];
+
+      const orderedIdxs = rankedSearch(haystack, trimmed);
+      return orderedIdxs.slice(0, MAX_RESULTS).map((i) => entries[i]);
+    }, [query, haystack, entries]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        if (
+          dropdownRef.current &&
+          !dropdownRef.current.contains(e.target as Node)
+        ) {
+          setShowResults(false);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () =>
+        document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    /**
+     * When a search result is selected, add its constituency to the watchlist.
+     */
+    const handleSelect = (entry: SearchEntry) => {
+      setWatchedIds((prev) => {
+        const filtered = prev.filter((id) => id !== entry.constituencyId);
+        return [entry.constituencyId, ...filtered];
+      });
+      setQuery('');
+      setShowResults(false);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    useImperativeHandle(ref, () => ({
+      addOrMoveToTop: (id: number) => {
+        setWatchedIds((prev) => {
+          const filtered = prev.filter((item) => item !== id);
+          return [id, ...filtered];
+        });
+      },
+    }));
 
-  /**
-   * When a search result is selected, add its constituency to the watchlist.
-   */
-  const handleSelect = (entry: SearchEntry) => {
-    if (!watchedIds.includes(entry.constituencyId)) {
-      setWatchedIds((prev) => [...prev, entry.constituencyId]);
-    }
-    setQuery('');
-    setShowResults(false);
-  };
+    const handleRemove = (constituencyId: number) => {
+      setWatchedIds((prev) => prev.filter((id) => id !== constituencyId));
+    };
 
-  const handleRemove = (constituencyId: number) => {
-    setWatchedIds((prev) => prev.filter((id) => id !== constituencyId));
-  };
+    /**
+     * Build resolved watchlist card data from watched constituency IDs.
+     * For each constituency: find all its candidates, determine the leader
+     * (first in the pre-sorted array), and compute total votes.
+     */
+    const watchlistCards = useMemo<WatchlistCardData[]>(() => {
+      return watchedIds
+        .map((cId) => {
+          const constituencyCandidates = candidates.filter(
+            (c) => c.constituency_id === cId
+          );
+          if (constituencyCandidates.length === 0) return null;
 
-  /**
-   * Build resolved watchlist card data from watched constituency IDs.
-   * For each constituency: find all its candidates, determine the leader
-   * (first in the pre-sorted array), and compute total votes.
-   */
-  const watchlistCards = useMemo<WatchlistCardData[]>(() => {
-    return watchedIds
-      .map((cId) => {
-        const constituencyCandidates = candidates.filter(
-          (c) => c.constituency_id === cId
-        );
-        if (constituencyCandidates.length === 0) return null;
+          // candidates are already sorted by votes desc — take top 3
+          const topCandidates = constituencyCandidates.slice(0, 3);
+          const totalVotes = constituencyCandidates.reduce(
+            (sum, c) => sum + c.votes,
+            0
+          );
 
-        const leader = constituencyCandidates[0]; // already sorted by votes desc
-        const totalVotes = constituencyCandidates.reduce(
-          (sum, c) => sum + c.votes,
-          0
-        );
+          const dName =
+            districtNames[topCandidates[0].district] ||
+            `District ${topCandidates[0].district}`;
+          const subId = String(cId).slice(
+            String(topCandidates[0].district).length
+          );
 
-        const dName =
-          districtNames[leader.district] || `District ${leader.district}`;
-        const subId = String(cId).slice(String(leader.district).length);
+          return {
+            constituencyId: cId,
+            districtName: dName,
+            constituencyName: subId,
+            topCandidates,
+            totalVotes,
+          };
+        })
+        .filter((card): card is WatchlistCardData => card !== null);
+    }, [watchedIds, candidates, districtNames]);
 
-        return {
-          constituencyId: cId,
-          districtName: dName,
-          constituencyName: subId,
-          leader,
-          totalVotes,
-        };
-      })
-      .filter((card): card is WatchlistCardData => card !== null);
-  }, [watchedIds, candidates, districtNames]);
+    return (
+      <aside className="sidebar-map-panel">
+        {/* Watchlist Section */}
+        <div className="sidebar-section watchlist-section">
+          <h2 id="watchlist-text">Your Watchlist</h2>
 
-  return (
-    <aside className="sidebar-map-panel">
-      {/* Watchlist Section */}
-      <div className="sidebar-section watchlist-section">
-        <h2 id="watchlist-text">Your Watchlist</h2>
+          {/* Search Bar */}
+          <div className="search-bar-container" ref={dropdownRef}>
+            <input
+              type="text"
+              placeholder="Search candidates or constituencies..."
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setShowResults(true);
+              }}
+              onFocus={() => setShowResults(true)}
+              className="search-bar-input"
+              aria-label="Search candidates or constituencies"
+              role="combobox"
+              aria-expanded={showResults && results.length > 0}
+            />
 
-        {/* Search Bar */}
-        <div className="search-bar-container" ref={dropdownRef}>
-          <input
-            type="text"
-            placeholder="Search candidates or constituencies..."
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setShowResults(true);
-            }}
-            onFocus={() => setShowResults(true)}
-            className="search-bar-input"
-            aria-label="Search candidates or constituencies"
-            role="combobox"
-            aria-expanded={showResults && results.length > 0}
-          />
+            {/* Search Results Dropdown */}
+            {showResults && query.trim() && (
+              <div className="search-results-preview">
+                {results.length > 0 ? (
+                  <ul className="search-results-list" role="listbox">
+                    {results.map((entry, i) => (
+                      <SearchResultItem
+                        key={`${entry.type}-${entry.constituencyId}-${i}`}
+                        entry={entry}
+                        onSelect={handleSelect}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="search-no-results">No results found</p>
+                )}
+              </div>
+            )}
+          </div>
 
-          {/* Search Results Dropdown */}
-          {showResults && query.trim() && (
-            <div className="search-results-preview">
-              {results.length > 0 ? (
-                <ul className="search-results-list" role="listbox">
-                  {results.map((entry, i) => (
-                    <SearchResultItem
-                      key={`${entry.type}-${entry.constituencyId}-${i}`}
-                      entry={entry}
-                      onSelect={handleSelect}
-                    />
-                  ))}
-                </ul>
+          {/* Watchlist Cards */}
+          <div className="watchlist-scroll-container">
+            <div className="watchlist-content">
+              {watchlistCards.length === 0 ? (
+                <p className="hint-text">
+                  Search for a candidate or constituency to add it here.
+                </p>
               ) : (
-                <p className="search-no-results">No results found</p>
+                watchlistCards.map((card) => (
+                  <WatchlistItem
+                    key={card.constituencyId}
+                    data={card}
+                    onRemove={handleRemove}
+                  />
+                ))
               )}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Watchlist Cards */}
-        <div className="watchlist-scroll-container">
-          <div className="watchlist-content">
-            {watchlistCards.length === 0 ? (
-              <p className="hint-text">
-                Search for a candidate or constituency to add it here.
-              </p>
+        {/* Leaderboard Section */}
+        <div className="sidebar-section leaderboard-section">
+          <div className="parties-index">
+            <h3>Leaderboard (Top 5)</h3>
+            {topFive.length > 0 ? (
+              <ul className="index-list">
+                {topFive.map(([party, seats], index) => (
+                  <li key={party} className="index-item">
+                    <span className="rank">#{index + 1}</span>
+                    <span className="party-name">{party}</span>
+                    <span className="seat-count">{seats}</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
-              watchlistCards.map((card) => (
-                <WatchlistItem
-                  key={card.constituencyId}
-                  data={card}
-                  onRemove={handleRemove}
-                />
-              ))
+              <p className="status-message">Counting in progress...</p>
             )}
           </div>
         </div>
-      </div>
-
-      {/* Leaderboard Section */}
-      <div className="sidebar-section leaderboard-section">
-        <div className="parties-index">
-          <h3>Leaderboard (Top 5)</h3>
-          {topFive.length > 0 ? (
-            <ul className="index-list">
-              {topFive.map(([party, seats], index) => (
-                <li key={party} className="index-item">
-                  <span className="rank">#{index + 1}</span>
-                  <span className="party-name">{party}</span>
-                  <span className="seat-count">{seats}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="status-message">Counting in progress...</p>
-          )}
-        </div>
-      </div>
-    </aside>
-  );
-};
+      </aside>
+    );
+  }
+);
 
 export default Sidebar;
