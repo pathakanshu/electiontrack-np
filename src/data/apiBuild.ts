@@ -13,6 +13,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getCurrentElection } from '../config/elections';
 
 /**
  * Read and parse a JSON file from disk.
@@ -26,14 +27,15 @@ async function readJsonFile<T>(filePath: string): Promise<T> {
  * Resolve a cache file path relative to public/cache/.
  */
 function getCachePath(filename: string): string {
-  return path.join(process.cwd(), 'public', 'cache', filename);
+  const election = getCurrentElection();
+  return path.join(process.cwd(), 'public', 'cache', election.id, filename);
 }
 
 /**
  * Build-time: Fetch district identifiers from local cache file.
  */
 export async function fetchDistrictIdentifiersBuild(): Promise<any> {
-  const filePath = getCachePath('districts.json');
+  const filePath = getCachePath('districtLookup.json');
   if (!fs.existsSync(filePath)) {
     throw new Error(`Cache file not found: ${filePath}`);
   }

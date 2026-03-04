@@ -20,6 +20,8 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
 import path from 'path';
+import { downloadCache } from './download-cache';
+import { getCurrentElection } from '../src/config/elections';
 
 function now(): string {
   return new Date().toISOString();
@@ -63,6 +65,42 @@ async function humanFileSize(filePath: string): Promise<string> {
 async function run() {
   const start = Date.now();
   log('Starting geometry generation...');
+
+  // Check if cache needs to be downloaded
+  try {
+    const election = getCurrentElection();
+    const cacheDir = path.join(
+      process.cwd(),
+      'public',
+      'cache',
+      String(election.year)
+    );
+    // We check for a few key files to determine if cache exists
+    const requiredFiles = [
+      'districtLookup.json',
+      'symbols.json',
+      'constituencies.json',
+    ];
+
+    let missingFiles = false;
+    for (const file of requiredFiles) {
+      if (!(await fileExists(path.join(cacheDir, file)))) {
+        log(`Cache miss: ${file} not found.`);
+        missingFiles = true;
+        break;
+      }
+    }
+
+    if (missingFiles) {
+      log(
+        `Cache incomplete for election ${election.year}. Running download script...`
+      );
+      await downloadCache();
+    }
+  } catch (err) {
+    errorLog('Error checking/downloading cache:', (err as Error).message);
+    process.exit(1);
+  }
 
   // Write a debug marker file immediately so we can tell the generator started.
   // This helps diagnose cases where the script runs but output isn't produced.
