@@ -117,6 +117,7 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Mobile: allow scrolling — overridden at the mobile breakpoint */
 }
 
 h1,
@@ -1435,30 +1436,212 @@ html[data-theme='dark']
   }
 }
 
+/* ── Mobile / portrait: single-column scrollable layout ────────────────── */
 @media (max-width: 700px), (max-aspect-ratio: 10/9) {
-  #main-grid,
-  #main-grid.main-grid--stats-page {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr auto auto;
-    grid-template-areas:
-      'navbar'
-      'heading'
-      'map'
-      'sidebar'
-      'footer';
+  /* Allow the page to scroll naturally */
+  html {
+    height: auto;
   }
 
-  .sidebar-map-panel {
-    border-left: none;
-    border-top: 1px solid var(--color-border);
-    max-height: 40vh;
+  body {
+    height: auto;
+    overflow: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Switch from viewport-locked grid to a stacked flow layout.
+     Use min-height so the page can grow beyond the viewport. */
+  #main-grid,
+  #main-grid.main-grid--stats-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: auto;
+  }
+
+  /* ── Navbar ── */
+  .top-navbar {
+    flex-shrink: 0;
+    height: auto;
+    min-height: 2.75rem;
+    flex-wrap: wrap;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .top-navbar__list {
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+  }
+
+  /* On narrow screens, pull the election label out of absolute
+     positioning and let it flow normally in the navbar list. */
+  .top-navbar__election {
+    position: static;
+    transform: none;
+    order: -1;
+    width: 100%;
+    text-align: center;
+  }
+
+  .top-navbar__election-label {
+    font-size: 1.15rem;
+  }
+
+  /* ── Header / Heading Bar ── */
+  .heading-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    padding: 0.5rem 0.75rem;
   }
 
   .heading-bar__title {
-    font-size: 1.6rem;
+    font-size: 1.5rem;
+    white-space: normal;
+    line-height: 1.15;
   }
 
+  .heading-bar__url {
+    font-size: 0.65rem;
+  }
+
+  /* Show the right section but simplify it — only the switcher row matters */
   .heading-bar__right {
+    display: flex;
+    flex: none;
+    width: 100%;
+  }
+
+  /* Hide verbose metadata rows on mobile (source, monitoring text) */
+  .heading-bar__row--secondary {
     display: none;
+  }
+
+  .heading-bar__tracking-label {
+    display: none;
+  }
+
+  /* Make the election switcher touch-friendly on mobile */
+  .election-switcher {
+    font-size: 0.9rem;
+    padding: 0.35rem 0.6rem;
+    min-height: 2.2rem;
+    flex: 1;
+    max-width: 100%;
+  }
+
+  /* ── Map: give it a fixed height so it doesn't collapse to 0
+     when the grid's 1fr row is gone. ── */
+  .map-container {
+    width: 100%;
+    height: 65vh;
+    min-height: 300px;
+    flex-shrink: 0;
+  }
+
+  /* Color index overlay — keep it visible but smaller */
+  .color-index-container {
+    bottom: 0.75rem;
+    left: 0.75rem;
+  }
+
+  .color-index-panel {
+    max-height: 35vh;
+    min-width: 11rem;
+    font-size: 0.82rem;
+  }
+
+  /* ── Sidebar: no longer viewport-locked, flows below the map ── */
+  .sidebar-map-panel {
+    border-left: none;
+    border-top: 1px solid var(--color-border);
+    height: auto;
+    max-height: none;
+    overflow: visible;
+    flex-shrink: 0;
+  }
+
+  /* The watchlist scroll container should show its full content
+     instead of being a fixed-height scroller inside the sidebar. */
+  .watchlist-scroll-container {
+    overflow-y: visible;
+    max-height: none;
+  }
+
+  .watchlist-section {
+    flex: none;
+  }
+
+  .watchlist-section h2 {
+    font-size: 1.8rem;
+  }
+
+  .sidebar-section h2,
+  .sidebar-section h3 {
+    font-size: 1.35rem;
+  }
+
+  /* ── Leaderboard: let it expand naturally ── */
+  .leaderboard-section {
+    flex: none;
+  }
+
+  /* ── Search bar dropdown: constrain to avoid overflow ── */
+  .search-results-preview {
+    max-height: 40vh;
+  }
+
+  /* ── Stats page wrapper: no longer inside a grid cell,
+     let it flow naturally ── */
+  #main-grid.main-grid--stats-page .stats-page-wrapper {
+    overflow-y: visible;
+    flex: 1 0 auto;
+  }
+
+  /* ── Footer ── */
+  footer {
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* ── Extra-narrow screens (phones in portrait) ─────────────────────────── */
+@media (max-width: 420px) {
+  .heading-bar__title {
+    font-size: 1.25rem;
+  }
+
+  .top-navbar__election-label {
+    font-size: 1rem;
+  }
+
+  .map-container {
+    height: 55vh;
+    min-height: 250px;
+  }
+
+  .dark-mode-btn {
+    padding: 0.25rem 0.3rem;
+  }
+
+  .dark-mode-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .lang-btn {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
+  }
+
+  .watchlist-section h2 {
+    font-size: 1.5rem;
+  }
+
+  footer {
+    font-size: 0.65rem;
   }
 }

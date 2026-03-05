@@ -17,6 +17,8 @@
   color: var(--color-text, #121212);
   overflow-y: auto;
   overflow-x: hidden;
+  /* Prevent children from expanding beyond the page width */
+  min-width: 0;
 }
 
 .stats-page--loading,
@@ -165,6 +167,7 @@
   gap: 0;
   margin-bottom: 1.5rem;
   border: 1px solid var(--color-border, #e0e0dc);
+  max-width: 100%;
 }
 
 .stat-card {
@@ -260,7 +263,8 @@
   margin-bottom: 1.25rem;
   border: 1px solid var(--color-border, #e0e0dc);
   background: var(--color-bg, #fff);
-  overflow: hidden;
+  overflow: visible;
+  max-width: 100%;
 }
 
 .stats-section__header {
@@ -327,6 +331,10 @@
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 /* ── Row / Column helpers ────────────────────────────────────────────────── */
@@ -336,17 +344,22 @@
   gap: 1rem;
   flex-wrap: wrap;
   align-items: flex-start;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .stats-col {
   flex: 1;
   min-width: 280px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .stats-col--narrow {
   flex: 0 0 auto;
   min-width: 220px;
   max-width: 300px;
+  overflow: hidden;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -355,11 +368,14 @@
 
 .bar-chart-container {
   width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .bar-chart-container svg {
   display: block;
+  max-width: 100%;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -368,11 +384,15 @@
 
 .donut-chart-wrapper {
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .donut-chart-wrapper svg {
   display: block;
   margin: 0 auto;
+  max-width: 100%;
+  height: auto;
 }
 
 /* Legend */
@@ -400,6 +420,8 @@
   font-size: 0.8rem;
   color: var(--color-text, #121212);
   white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
 }
 
 .donut-legend__swatch {
@@ -460,11 +482,14 @@
 
 .diverging-bar-chart-container {
   width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .diverging-bar-chart-container svg {
   display: block;
+  max-width: 100%;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -472,7 +497,8 @@
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 .data-table-wrapper {
-  overflow: hidden;
+  overflow: visible;
+  max-width: 100%;
 }
 
 .data-table-wrapper--compact .data-table__th,
@@ -503,6 +529,7 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border: 1px solid var(--color-border, #e0e0dc);
+  max-width: 100%;
 }
 
 /* Scrollbar */
@@ -1075,7 +1102,7 @@
 
 @media (max-width: 600px) {
   .stats-page {
-    padding: 0.75rem 1rem 2rem;
+    padding: 0.75rem 0.5rem 2rem;
   }
 
   .stats-page__title {
@@ -1095,7 +1122,7 @@
   }
 
   .stats-section__content {
-    padding: 0.5rem 0.75rem 0.75rem;
+    padding: 0.5rem 0.5rem 0.75rem;
     gap: 1rem;
   }
 
@@ -1134,6 +1161,54 @@
 
   .flip-cost-summary__card:last-child {
     border-bottom: none;
+  }
+
+  /* Force all columns to single-stack on small phones */
+  .stats-col,
+  .stats-col--narrow {
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .stats-row {
+    flex-direction: column;
+  }
+
+  /* Shrink donut charts to fit the screen */
+  .donut-chart-wrapper svg {
+    max-width: 280px;
+  }
+
+  /* Legends: allow wrapping */
+  .donut-legend__item {
+    white-space: normal;
+  }
+
+  .donut-legend__label {
+    max-width: 8rem;
+  }
+
+  .donut-legend--grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Tighter table cells */
+  .data-table__th,
+  .data-table__td {
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+    font-size: 0.72rem;
+  }
+
+  /* Swing simulator: constrain chart overflow */
+  .swing-sim__charts {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .swing-sim__charts svg {
+    max-width: 100%;
   }
 }
 
@@ -1175,6 +1250,22 @@
 #main-grid.main-grid--stats-page
   .stats-page-wrapper::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted, #999);
+}
+
+/* ── Mobile: stats page uses the same flex layout from main.css ────────── */
+@media (max-width: 700px), (max-aspect-ratio: 10/9) {
+  #main-grid.main-grid--stats-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: auto;
+    overflow: visible;
+  }
+
+  #main-grid.main-grid--stats-page .stats-page-wrapper {
+    overflow-y: visible;
+    flex: 1 0 auto;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
