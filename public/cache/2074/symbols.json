@@ -1,0 +1,462 @@
+[
+  {
+    "symbolId": 1,
+    "symbolName": "रुख"
+  },
+  {
+    "symbolId": 2,
+    "symbolName": "सूर्य"
+  },
+  {
+    "symbolId": 3,
+    "symbolName": "गोलाकारभित्र हँसिया हथौडा"
+  },
+  {
+    "symbolId": 6,
+    "symbolName": "दुई हात जोडेको नमस्कार"
+  },
+  {
+    "symbolId": 9,
+    "symbolName": "हँसिया र तारा"
+  },
+  {
+    "symbolId": 10,
+    "symbolName": "गिलास"
+  },
+  {
+    "symbolId": 12,
+    "symbolName": "मादल"
+  },
+  {
+    "symbolId": 13,
+    "symbolName": "घर"
+  },
+  {
+    "symbolId": 15,
+    "symbolName": "जग"
+  },
+  {
+    "symbolId": 17,
+    "symbolName": "गोरु गाडाको चक्का (पाङ्‌ग्रो)"
+  },
+  {
+    "symbolId": 18,
+    "symbolName": "हथौडा"
+  },
+  {
+    "symbolId": 20,
+    "symbolName": "गाग्री"
+  },
+  {
+    "symbolId": 22,
+    "symbolName": "उट"
+  },
+  {
+    "symbolId": 28,
+    "symbolName": "वज्र"
+  },
+  {
+    "symbolId": 29,
+    "symbolName": "बस"
+  },
+  {
+    "symbolId": 30,
+    "symbolName": "भेडा"
+  },
+  {
+    "symbolId": 35,
+    "symbolName": "कुखुराको भाले"
+  },
+  {
+    "symbolId": 40,
+    "symbolName": "ट्रयाक्टर"
+  },
+  {
+    "symbolId": 42,
+    "symbolName": "तराजु"
+  },
+  {
+    "symbolId": 54,
+    "symbolName": "माछा"
+  },
+  {
+    "symbolId": 56,
+    "symbolName": "दाप सहितको खुकुरी"
+  },
+  {
+    "symbolId": 57,
+    "symbolName": "पृथ्वी"
+  },
+  {
+    "symbolId": 62,
+    "symbolName": "घन कोदालो"
+  },
+  {
+    "symbolId": 64,
+    "symbolName": "कमलको फूल"
+  },
+  {
+    "symbolId": 65,
+    "symbolName": "घोडा"
+  },
+  {
+    "symbolId": 66,
+    "symbolName": "हृदय"
+  },
+  {
+    "symbolId": 69,
+    "symbolName": "तारापुञ्ज"
+  },
+  {
+    "symbolId": 75,
+    "symbolName": "महिला"
+  },
+  {
+    "symbolId": 84,
+    "symbolName": "कछुवा"
+  },
+  {
+    "symbolId": 85,
+    "symbolName": "बच्चा काखमा लिएकी आमा"
+  },
+  {
+    "symbolId": 86,
+    "symbolName": "करुवा"
+  },
+  {
+    "symbolId": 92,
+    "symbolName": "साइकल"
+  },
+  {
+    "symbolId": 315,
+    "symbolName": "मुढा"
+  },
+  {
+    "symbolId": 1001,
+    "symbolName": "चङ्गा"
+  },
+  {
+    "symbolId": 1004,
+    "symbolName": "हेलमेट"
+  },
+  {
+    "symbolId": 1006,
+    "symbolName": "क्यामेरा"
+  },
+  {
+    "symbolId": 1008,
+    "symbolName": "कप प्लेट"
+  },
+  {
+    "symbolId": 1009,
+    "symbolName": "डोजर"
+  },
+  {
+    "symbolId": 1011,
+    "symbolName": "ग्यास सिलिन्डर"
+  },
+  {
+    "symbolId": 1020,
+    "symbolName": "कलम"
+  },
+  {
+    "symbolId": 1021,
+    "symbolName": "टेलिभिजन"
+  },
+  {
+    "symbolId": 1024,
+    "symbolName": "ग्यास चुलो"
+  },
+  {
+    "symbolId": 1026,
+    "symbolName": "लाटोकोसेरो"
+  },
+  {
+    "symbolId": 1029,
+    "symbolName": "कैँची"
+  },
+  {
+    "symbolId": 1034,
+    "symbolName": "जोडी चप्पल"
+  },
+  {
+    "symbolId": 1037,
+    "symbolName": "स्टूल"
+  },
+  {
+    "symbolId": 1045,
+    "symbolName": "आइरन"
+  },
+  {
+    "symbolId": 2020,
+    "symbolName": "नेल कटर"
+  },
+  {
+    "symbolId": 2028,
+    "symbolName": "सातवटा खुडकिला भएको भर्‍याङ"
+  },
+  {
+    "symbolId": 2036,
+    "symbolName": "भङ्गेरा"
+  },
+  {
+    "symbolId": 2044,
+    "symbolName": "पन्चिङ मेसिन"
+  },
+  {
+    "symbolId": 2052,
+    "symbolName": "टर्च"
+  },
+  {
+    "symbolId": 2057,
+    "symbolName": "ज्याबल"
+  },
+  {
+    "symbolId": 2062,
+    "symbolName": "पानीको फिल्टर"
+  },
+  {
+    "symbolId": 2076,
+    "symbolName": "ओथारो बसेको कुखुरा"
+  },
+  {
+    "symbolId": 2079,
+    "symbolName": "ढाका टोपी"
+  },
+  {
+    "symbolId": 2083,
+    "symbolName": "चेसबोर्ड"
+  },
+  {
+    "symbolId": 2092,
+    "symbolName": "सिरिन्ज"
+  },
+  {
+    "symbolId": 2124,
+    "symbolName": "टि टेबुल"
+  },
+  {
+    "symbolId": 2147,
+    "symbolName": "गितार"
+  },
+  {
+    "symbolId": 2151,
+    "symbolName": "खाम"
+  },
+  {
+    "symbolId": 2169,
+    "symbolName": "खण्डेथाल"
+  },
+  {
+    "symbolId": 2196,
+    "symbolName": "बकुल्लो"
+  },
+  {
+    "symbolId": 2206,
+    "symbolName": "सेफ्टी पिन"
+  },
+  {
+    "symbolId": 2221,
+    "symbolName": "टायर"
+  },
+  {
+    "symbolId": 2278,
+    "symbolName": "ढल्केको छाता"
+  },
+  {
+    "symbolId": 2279,
+    "symbolName": "हलो"
+  },
+  {
+    "symbolId": 2281,
+    "symbolName": "त्रिशुल"
+  },
+  {
+    "symbolId": 2289,
+    "symbolName": "लाउड स्पिकर"
+  },
+  {
+    "symbolId": 2292,
+    "symbolName": "पाँचकुने तारा"
+  },
+  {
+    "symbolId": 2301,
+    "symbolName": "सेलरोटीको चाङ"
+  },
+  {
+    "symbolId": 2305,
+    "symbolName": "किबोर्ड सहितको कम्प्युटर"
+  },
+  {
+    "symbolId": 2306,
+    "symbolName": "पिधँ भएको सादा ढकिया"
+  },
+  {
+    "symbolId": 2307,
+    "symbolName": "कुकुरको टाउको"
+  },
+  {
+    "symbolId": 2311,
+    "symbolName": "माथि चराको प्रतिक भएको डम्फु"
+  },
+  {
+    "symbolId": 2312,
+    "symbolName": "दुइ वटा पैताला छाप"
+  },
+  {
+    "symbolId": 2314,
+    "symbolName": "महिला पुरुष"
+  },
+  {
+    "symbolId": 2316,
+    "symbolName": "पुतली"
+  },
+  {
+    "symbolId": 2317,
+    "symbolName": "खरायो"
+  },
+  {
+    "symbolId": 2319,
+    "symbolName": "लौरो"
+  },
+  {
+    "symbolId": 2321,
+    "symbolName": "घण्टाघर"
+  },
+  {
+    "symbolId": 2324,
+    "symbolName": "कोदालो बोकेको किसान"
+  },
+  {
+    "symbolId": 2325,
+    "symbolName": "लोककला कोरिएको गाग्रोमा आँपको कलश र त्यस माथि नरिवल"
+  },
+  {
+    "symbolId": 2327,
+    "symbolName": "गैंती"
+  },
+  {
+    "symbolId": 2328,
+    "symbolName": "पञ्जाछाप"
+  },
+  {
+    "symbolId": 2329,
+    "symbolName": "गोलाकार भित्र शंख"
+  },
+  {
+    "symbolId": 2332,
+    "symbolName": "तीर"
+  },
+  {
+    "symbolId": 2340,
+    "symbolName": "बिरालो"
+  },
+  {
+    "symbolId": 2344,
+    "symbolName": "अर्ना"
+  },
+  {
+    "symbolId": 2347,
+    "symbolName": "चापाकल"
+  },
+  {
+    "symbolId": 2445,
+    "symbolName": "गोलाकार भित्र घण्टी"
+  },
+  {
+    "symbolId": 2446,
+    "symbolName": "तीन ढुङगे अगेनो "
+  },
+  {
+    "symbolId": 2448,
+    "symbolName": "बलिरहेको मैनबत्ती"
+  },
+  {
+    "symbolId": 2453,
+    "symbolName": "त्रिभुज"
+  },
+  {
+    "symbolId": 2454,
+    "symbolName": "पोते सहितको तिलहरी"
+  },
+  {
+    "symbolId": 2455,
+    "symbolName": "मौरी"
+  },
+  {
+    "symbolId": 2456,
+    "symbolName": "लोहोरो सिलौटो"
+  },
+  {
+    "symbolId": 2458,
+    "symbolName": "हारमोनियम"
+  },
+  {
+    "symbolId": 2459,
+    "symbolName": "हेङ्गर"
+  },
+  {
+    "symbolId": 2460,
+    "symbolName": "अङ्गुरको झुप्पा"
+  },
+  {
+    "symbolId": 2462,
+    "symbolName": "क्रस खुकुरी"
+  },
+  {
+    "symbolId": 2463,
+    "symbolName": "खर्पन बोकेको मान्छे"
+  },
+  {
+    "symbolId": 2466,
+    "symbolName": "छत्रे टोपी"
+  },
+  {
+    "symbolId": 2467,
+    "symbolName": "जुँगा सहितको अनुहार"
+  },
+  {
+    "symbolId": 2469,
+    "symbolName": "जुवा"
+  },
+  {
+    "symbolId": 2470,
+    "symbolName": "ट्रक"
+  },
+  {
+    "symbolId": 2472,
+    "symbolName": "ट्राफिक प्रहरी"
+  },
+  {
+    "symbolId": 2473,
+    "symbolName": "नरिवल"
+  },
+  {
+    "symbolId": 2475,
+    "symbolName": "पानीको जार"
+  },
+  {
+    "symbolId": 2477,
+    "symbolName": "पेन्चिस"
+  },
+  {
+    "symbolId": 2480,
+    "symbolName": "मुसो"
+  },
+  {
+    "symbolId": 2482,
+    "symbolName": "सूर्यमुखी फूल"
+  },
+  {
+    "symbolId": 2484,
+    "symbolName": "स्प्रे"
+  },
+  {
+    "symbolId": 2486,
+    "symbolName": "हाते आरा"
+  },
+  {
+    "symbolId": 2488,
+    "symbolName": "पानीको तुमलेट"
+  }
+]

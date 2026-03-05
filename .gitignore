@@ -8,9 +8,7 @@ __pycache__/
 *.egg-info/
 
 # Project specific
-public/data/*
 playground
-cache
 
 # Logs
 logs

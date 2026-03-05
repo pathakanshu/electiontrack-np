@@ -8,11 +8,12 @@
 import asyncio
 import json
 import os
-import re
 from pathlib import Path
 
 import aiohttp
 from playwright.async_api import async_playwright
+import playwright
+
 
 # Configuration
 URL = "https://app.hamropatro.com/election/parties"
