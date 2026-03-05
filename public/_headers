@@ -1,0 +1,25 @@
+# Hashed build assets — immutable, cache forever
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Election data files change during active counting
+/cache/*.txt
+  Cache-Control: public, max-age=300, s-maxage=60
+/cache/*.json
+  Cache-Control: public, max-age=300, s-maxage=60
+
+# Symbol images rarely change
+/cache/symbols/*
+  Cache-Control: public, max-age=86400, s-maxage=3600
+
+# Geometry is static
+/data/*
+  Cache-Control: public, max-age=604800, s-maxage=86400
+
+# HTML shell — short cache so deploys propagate quickly
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Font preconnect hints
+/*
+  X-Content-Type-Options: nosniff
