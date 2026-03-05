@@ -123,7 +123,10 @@ const App = () => {
 
   return (
     <div id="main-grid" className={isStatsPage ? 'main-grid--stats-page' : ''}>
-      <Navbar selectedElectionId={selectedElectionId} />
+      <Navbar
+        selectedElectionId={selectedElectionId}
+        onElectionChange={handleElectionChange}
+      />
 
       <Header
         selectedElectionId={selectedElectionId}
@@ -148,9 +151,10 @@ const App = () => {
  * Full-width utility navbar — spans both columns at the very top of the grid.
  * Contains stats/map link, dark mode toggle, and language toggle.
  */
-const Navbar: React.FC<{ selectedElectionId: string }> = ({
-  selectedElectionId,
-}) => {
+const Navbar: React.FC<{
+  selectedElectionId: string;
+  onElectionChange: (id: string) => void;
+}> = ({ selectedElectionId, onElectionChange }) => {
   const { locale, setLocale } = useLanguage();
   const { t } = useTranslation();
   const { path } = useHashRouter();
@@ -186,12 +190,7 @@ const Navbar: React.FC<{ selectedElectionId: string }> = ({
     setDark((prev) => !prev);
   }, []);
 
-  const allElections = getAllElections();
-  const selected = allElections.find((e) => e.id === selectedElectionId);
-  const electionLabel =
-    locale === 'np'
-      ? (selected?.nameNp ?? selected?.name ?? selectedElectionId)
-      : (selected?.name ?? selectedElectionId);
+  const allElections = getAllElections().sort((a, b) => a.year - b.year);
 
   return (
     <nav className="top-navbar">
@@ -204,7 +203,36 @@ const Navbar: React.FC<{ selectedElectionId: string }> = ({
           )}
         </li>
         <li className="top-navbar__election">
-          <span className="top-navbar__election-label">{electionLabel}</span>
+          <div className="top-navbar__election-tabs">
+            {allElections.map((el) => {
+              const isActive = el.id === selectedElectionId;
+              const label =
+                locale === 'np'
+                  ? String(el.year).replace(
+                      /\d/g,
+                      (d) => '०१२३४५६७८९'[Number(d)]
+                    )
+                  : String(el.year);
+              return (
+                <button
+                  key={el.id}
+                  className={`election-tab${isActive ? ' election-tab--active' : ''}${el.isCurrent ? ' election-tab--live' : ''}`}
+                  onClick={() => {
+                    if (!isActive) onElectionChange(el.id);
+                  }}
+                  aria-pressed={isActive}
+                >
+                  {label}
+                  {el.isCurrent && (
+                    <span
+                      className="election-tab__live-dot"
+                      aria-label="live"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </li>
         <li style={{ marginLeft: 'auto' }}>
           <button

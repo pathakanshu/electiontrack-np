@@ -480,16 +480,65 @@ html[data-pr-mode] #map {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  pointer-events: none;
 }
 
-.top-navbar__election-label {
+.top-navbar__election-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--color-bg);
+}
+
+.election-tab {
+  position: relative;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--color-border);
+  padding: 0.25rem 0.75rem;
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.05rem;
   font-weight: 400;
-  color: var(--color-text);
-  letter-spacing: 0.01em;
+  color: var(--color-text-muted);
+  cursor: pointer;
   white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1.4;
+}
+
+.election-tab:last-child {
+  border-right: none;
+}
+
+.election-tab:hover {
+  color: var(--color-text);
+  background-color: var(--color-surface-hover);
+}
+
+.election-tab--active {
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  font-weight: 400;
+}
+
+.election-tab--active.election-tab--live {
+  color: var(--color-red);
+}
+
+.election-tab__live-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background-color: var(--color-red);
+  animation: live-pulse 1.8s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 /* ── Voting Mode Toggle (FPTP ↔ PR segmented pill) ── */
@@ -1481,11 +1530,13 @@ html[data-theme='dark']
     transform: none;
     order: -1;
     width: 100%;
-    text-align: center;
+    display: flex;
+    justify-content: center;
   }
 
-  .top-navbar__election-label {
-    font-size: 1.15rem;
+  .election-tab {
+    font-size: 0.95rem;
+    padding: 0.2rem 0.6rem;
   }
 
   /* ── Header / Heading Bar ── */
@@ -1614,8 +1665,9 @@ html[data-theme='dark']
     font-size: 1.25rem;
   }
 
-  .top-navbar__election-label {
-    font-size: 1rem;
+  .election-tab {
+    font-size: 0.85rem;
+    padding: 0.15rem 0.5rem;
   }
 
   .map-container {
