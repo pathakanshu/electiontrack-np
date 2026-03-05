@@ -335,21 +335,32 @@ async function handleFetch(
     return undefined;
   }
 
-  // Try to serve from KV
-  const { value, metadata } = await env.ELECTION_DATA.getWithMetadata<{
+  // First, do a metadata-only check. This avoids reading the full (potentially
+  // multi-MB) value into memory just to discover there's nothing in KV or
+  // that the client already has the latest version (304).
+  const metaOnly = await env.ELECTION_DATA.getWithMetadata<{
     updatedAt: string;
     contentType: string;
     etag: string;
-  }>(source.kvKey, 'text');
+  }>(source.kvKey, 'stream');
 
-  if (!value || !metadata) {
-    // No KV data yet — fall through to static asset
+  if (!metaOnly.value || !metaOnly.metadata) {
+    // No KV data yet — fall through to static asset.
+    // Cancel the stream if it was opened.
+    if (metaOnly.value) {
+      (metaOnly.value as ReadableStream).cancel();
+    }
     return undefined;
   }
 
-  // Check If-None-Match for 304 support
+  const metadata = metaOnly.metadata;
+
+  // Check If-None-Match for 304 support (HEAD and GET).
+  // This path touches zero bytes of the body — very cheap on CPU.
   const ifNoneMatch = request.headers.get('If-None-Match');
   if (ifNoneMatch && metadata.etag && ifNoneMatch === `"${metadata.etag}"`) {
+    // We don't need the body — cancel the stream to free resources.
+    (metaOnly.value as ReadableStream).cancel();
     return new Response(null, {
       status: 304,
       headers: {
@@ -359,8 +370,25 @@ async function handleFetch(
     });
   }
 
-  // Serve the fresh data from KV
-  return new Response(value, {
+  // For HEAD requests the client only wants headers (e.g. polling for changes).
+  if (request.method === 'HEAD') {
+    (metaOnly.value as ReadableStream).cancel();
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Content-Type': metadata.contentType || 'application/json',
+        'Last-Modified': metadata.updatedAt,
+        ETag: `"${metadata.etag}"`,
+        'Cache-Control': 'public, max-age=15, s-maxage=10',
+        'Access-Control-Allow-Origin': '*',
+        'X-Data-Source': 'kv-live',
+      },
+    });
+  }
+
+  // GET — stream the body directly from KV to the client without buffering
+  // the full value in memory. This avoids the CPU time limit on large files.
+  return new Response(metaOnly.value as ReadableStream, {
     status: 200,
     headers: {
       'Content-Type': metadata.contentType || 'application/json',
