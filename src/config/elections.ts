@@ -24,11 +24,13 @@
  * The election shown by default when the app first loads.
  * Change this constant to switch the startup election without touching anything else.
  */
-export const DEFAULT_ELECTION_ID = '2079';
+export const DEFAULT_ELECTION_ID = '2082';
 
 export interface ElectionConfig {
   id: string;
   name: string;
+  /** Nepali name for the election (shown when locale is 'np'). */
+  nameNp: string;
   year: number;
   isCurrent: boolean;
   /** If true, the UI should show a warning that data is incomplete/unavailable. */
@@ -75,8 +77,9 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
   '2079': {
     id: '2079',
     name: '2079 General Election',
+    nameNp: '२०७९ आम निर्वाचन',
     year: 2079,
-    isCurrent: true,
+    isCurrent: false,
     endpoints: {
       // Live geometry from Election Commission
       provinces:
@@ -110,6 +113,7 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
   '2074': {
     id: '2074',
     name: '2074 General Election',
+    nameNp: '२०७४ आम निर्वाचन',
     year: 2074,
     isCurrent: false,
     missingData: true,
@@ -140,8 +144,9 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
   '2082': {
     id: '2082',
     name: '2082 General Election',
+    nameNp: '२०८२ आम निर्वाचन',
     year: 2082,
-    isCurrent: false,
+    isCurrent: true,
     endpoints: {
       provinces:
         'https://result.election.gov.np/JSONFiles/JSONMap/geojson/Province.json',
@@ -157,9 +162,8 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
         `https://result.election.gov.np/JSONFiles/Election2082/HOR/FPTP/HOR-${districtId}-${constituencyId}.json`,
     },
     source: {
-      // Using 2079 lookup as base until 2082 specific lookup is available
       districtLookup:
-        'https://result.election.gov.np/JSONFiles/Election2079/Local/Lookup/districts.json',
+        'https://result.election.gov.np/JSONFiles/Election2082/Local/Lookup/districts.json',
       symbolImages: 'https://result.election.gov.np/Images/symbol-hor-pa',
       candidates:
         'https://result.election.gov.np/JSONFiles/ElectionResultCentral2082.txt',
