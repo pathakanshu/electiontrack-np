@@ -10,6 +10,10 @@ import uFuzzy from '@leeoniya/ufuzzy';
 import { ElectionStats } from '../../hooks/useElectionData';
 import { Candidate } from '../../types/election';
 import { getDistrictIdentifiers } from '../../data/dataBundler';
+import { useLanguage, useTranslation } from '../../i18n';
+import { getName, getNameFromFields } from '../../i18n/getName';
+
+import type { DistrictIdentifier } from '../../types/election';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,8 +37,14 @@ export interface SidebarRef {
 
 /** A single entry in the flat search haystack. */
 interface SearchEntry {
-  /** The display string that gets searched against. */
+  /** The display string shown in search results (locale-aware). */
   label: string;
+  /**
+   * The string that uFuzzy actually searches against.
+   * Concatenates both English and Nepali names so the user can type
+   * in either language regardless of the active locale.
+   */
+  searchText: string;
   /** Secondary info line shown below the label. */
   meta: string;
   /** Type tag shown in the result preview. */
@@ -43,8 +53,11 @@ interface SearchEntry {
   constituencyId: number;
 }
 
-/** URL pattern for cached party symbol images. */
+/** URL pattern for cached party symbol images (local). */
 const SYMBOL_IMG_URL = '/cache/symbols';
+
+/** Remote fallback URL for symbol images from Election Commission. */
+const SYMBOL_IMG_REMOTE = 'https://result.election.gov.np/Images/symbol-hor-pa';
 
 /** Resolved data for a watchlist constituency card. */
 interface WatchlistCardData {
@@ -72,12 +85,20 @@ interface WatchlistCardData {
  *   which handles common Devanagari mistakes like missing chandrabindu,
  *   swapped anusvara, or dropped visarga.
  */
+/**
+ * uFuzzy configured for both English and Devanagari support.
+ *
+ * For English: We allow dots and spaces to be ignored between characters
+ * so that "KP" or "kp" matches "K.P." or "K. P.".
+ *
+ * For Devanagari: `unicode: true` enables Unicode-aware character classes.
+ */
 const uf = new uFuzzy({
   unicode: true,
   interSplit: '[^\\p{L}\\d]+',
   intraSplit: '\\p{Ll}\\p{Lu}',
   intraBound: '\\p{L}\\d|\\d\\p{L}|\\p{Ll}\\p{Lu}',
-  intraChars: '[\\p{L}\\d]',
+  intraChars: '[\\p{L}\\d.]', // Allow dots within "words" so they don't break initials
   intraContr: "'\\p{L}{1,2}\\b",
   intraMode: 1,
 });
@@ -113,10 +134,19 @@ const RANK_LIMIT = 1000;
  * Within tiers 0 and 1 shorter labels are preferred so that
  * "काठमाडौं - 1" (close match) beats "काठमाडौंको …" (longer noise).
  */
+function normalize(s: string | undefined | null): string {
+  if (!s) return '';
+  return s.toLowerCase().replace(/[.]/g, '');
+}
+
 function prefixScore(label: string, needle: string): number {
+  if (!label || !needle) return 3;
   const ll = label.toLowerCase();
   const nl = needle.toLowerCase();
-  if (ll.startsWith(nl)) return 0;
+  const nLabel = normalize(ll);
+  const nNeedle = normalize(nl);
+
+  if (ll.startsWith(nl) || (nNeedle && nLabel.startsWith(nNeedle))) return 0;
   // Check first word (everything before the first space / separator)
   const firstWord = ll.split(/[\s\-–—]+/)[0];
   if (firstWord.startsWith(nl)) return 1;
@@ -125,44 +155,86 @@ function prefixScore(label: string, needle: string): number {
 }
 
 function rankedSearch(haystack: string[], needle: string): number[] {
-  const trimmed = needle.trim();
-  if (!trimmed || haystack.length === 0) return [];
+  try {
+    const trimmed = needle.trim();
+    if (!trimmed || haystack.length === 0) return [];
 
-  // Step 1: fast regex filter
-  let idxs = uf.filter(haystack, trimmed);
-  if (!idxs || idxs.length === 0) return [];
+    const nNeedle = normalize(trimmed);
 
-  // Step 2: cheap pre-sort — prefix matches bubble to top so they survive the cap
-  idxs.sort((a, b) => {
-    const pa = prefixScore(haystack[a], trimmed);
-    const pb = prefixScore(haystack[b], trimmed);
-    if (pa !== pb) return pa - pb;
-    // Within the same prefix tier, prefer shorter labels (closer match)
-    return haystack[a].length - haystack[b].length;
-  });
+    // 1. uFuzzy filter
+    let idxs = uf.filter(haystack, trimmed) || [];
 
-  // Step 3: cap to avoid sorting thousands of entries
-  if (idxs.length > RANK_LIMIT) {
-    idxs = idxs.slice(0, RANK_LIMIT);
+    // 2. Fallback: normalized substring search (always run)
+    const fallbackIdxs = [];
+    for (let i = 0; i < haystack.length; i++) {
+      const item = haystack[i];
+      if (item && normalize(item).includes(nNeedle)) {
+        fallbackIdxs.push(i);
+      }
+    }
+
+    // 3. Merge and de-duplicate (uFuzzy matches first)
+    const seen = new Set(idxs);
+    for (const i of fallbackIdxs) {
+      if (!seen.has(i)) idxs.push(i);
+    }
+
+    if (idxs.length === 0) return [];
+
+    // 4. Pre-sort by prefix so they survive the cap
+    idxs.sort((a, b) => {
+      const sA = haystack[a];
+      const sB = haystack[b];
+      if (sA === undefined || sB === undefined) return 0;
+      const pa = prefixScore(sA, trimmed);
+      const pb = prefixScore(sB, trimmed);
+      if (pa !== pb) return pa - pb;
+      return sA.length - sB.length;
+    });
+
+    if (idxs.length > RANK_LIMIT) {
+      idxs = idxs.slice(0, RANK_LIMIT);
+    }
+
+    // 5. uFuzzy scoring (optional, with safety)
+    let finalIdxs = idxs;
+    let info = null;
+    try {
+      info = uf.info(idxs, haystack, trimmed);
+    } catch (e) {
+      info = null;
+    }
+    if (info && info.idx) {
+      let order = null;
+      try {
+        order = uf.sort(info, haystack, trimmed);
+      } catch (e) {
+        order = null;
+      }
+      if (order && Array.isArray(order) && order.length > 0) {
+        finalIdxs = order.map((i) => info.idx[i]);
+      }
+    }
+
+    // 6. Final re-sort
+    finalIdxs.sort((a, b) => {
+      const sA = haystack[a];
+      const sB = haystack[b];
+      if (sA === undefined || sB === undefined) return 0;
+      const pa = prefixScore(sA, trimmed);
+      const pb = prefixScore(sB, trimmed);
+      if (pa !== pb) return pa - pb;
+      return sA.length - sB.length;
+    });
+
+    return finalIdxs;
+  } catch (err) {
+    console.error('[rankedSearch] Critical error during search:', err, {
+      needle,
+      haystackSize: haystack.length,
+    });
+    return [];
   }
-
-  // Step 4: detailed info + uFuzzy ranking
-  const info = uf.info(idxs, haystack, trimmed);
-  const order = uf.sort(info, haystack, trimmed);
-
-  // Step 5: re-sort by prefix closeness so that type-agnostic prefix
-  // matches always beat pure fuzzy matches, regardless of uFuzzy's
-  // internal scoring which can't distinguish "का" → "काठमाडौं" from
-  // "का" → "कपिल" when both start at position 0 with 0 insertions.
-  const ranked = order.map((i) => info.idx[i]);
-  ranked.sort((a, b) => {
-    const pa = prefixScore(haystack[a], trimmed);
-    const pb = prefixScore(haystack[b], trimmed);
-    if (pa !== pb) return pa - pb;
-    return haystack[a].length - haystack[b].length;
-  });
-
-  return ranked;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +278,8 @@ const WatchlistItem: React.FC<{
   map: any;
   leadingCandidates: Candidate[];
 }> = ({ data, onRemove, map, leadingCandidates }) => {
+  const { locale } = useLanguage();
+  const { t } = useTranslation();
   // Track whether the mouse is still inside this card. When a party-highlight
   // child clears all highlights on mouse-leave, we use this to immediately
   // restore the card-level constituency highlight.
@@ -256,7 +330,7 @@ const WatchlistItem: React.FC<{
       */}
         <h3
           className="watchlist-item-title"
-          title={`Leading: ${data.leadingParty}`}
+          title={t('watchlist_leading', { party: data.leadingParty })}
         >
           <span className="watchlist-title-district">{data.districtName}</span>
           <span className="watchlist-title-sep">-</span>
@@ -269,93 +343,109 @@ const WatchlistItem: React.FC<{
           <span className="topbar-value">
             {data.totalVotes.toLocaleString()}
           </span>
-          <span className="topbar-label"> votes</span>
+          <span className="topbar-label"> {t('votes_label')}</span>
         </span>
         <button
           className="watchlist-remove-btn"
           onClick={() => onRemove(data.constituencyId)}
-          aria-label={`Remove ${data.districtName} - ${data.constituencyName} from watchlist`}
+          aria-label={t('watchlist_remove_aria', {
+            district: data.districtName,
+            constituency: data.constituencyName,
+          })}
         >
           ✕
         </button>
       </div>
 
-      {/* Body: names on left, symbols + votes on right */}
-      <div className="watchlist-item-body">
-        {/* Left — top 3 candidate names */}
-        <ol className="watchlist-candidates-list">
-          {data.topCandidates.map((c) => {
-            const partyColor =
-              (colorMapping.parties as any)[c.party] || colorMapping.others;
-            return (
-              <li key={c.candidate_id} className="watchlist-candidate-name">
-                {/*
-                Dot: hovering highlights ALL constituencies belonging to
-                this party across the whole map (party-wide dimming effect).
-              */}
-                <span
-                  className="party-color-dot"
-                  style={{ backgroundColor: partyColor }}
-                  title={c.party}
-                  aria-label={c.party}
+      {/* Body: names on left, symbols + votes on right — hidden entirely when no votes */}
+      {(() => {
+        const withVotes = data.topCandidates.filter((c) => c.votes > 0);
+        if (withVotes.length === 0) return null;
+
+        return (
+          <div className="watchlist-item-body">
+            {/* Left — candidate names */}
+            <ol className="watchlist-candidates-list">
+              {withVotes.map((c) => {
+                const partyColor =
+                  (colorMapping.parties as any)[c.party] || colorMapping.others;
+                return (
+                  <li key={c.candidate_id} className="watchlist-candidate-name">
+                    <span
+                      className="party-color-dot"
+                      style={{ backgroundColor: partyColor }}
+                      title={getNameFromFields(c.party_en, c.party, locale)}
+                      aria-label={getNameFromFields(
+                        c.party_en,
+                        c.party,
+                        locale
+                      )}
+                      onMouseEnter={() => enterParty(c.party)}
+                      onMouseLeave={() => leaveParty()}
+                    />
+                    <span className="watchlist-candidate-name-text">
+                      {getName(c, locale)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+
+            {/* Right — symbol image + vote count */}
+            <div className="watchlist-symbols-row">
+              {withVotes.map((c) => (
+                <div
+                  key={c.candidate_id}
+                  className="watchlist-symbol-col"
                   onMouseEnter={() => enterParty(c.party)}
                   onMouseLeave={() => leaveParty()}
-                />
-                {/*
-                Name text: hovering highlights only THIS candidate's
-                constituency on the map (single-constituency highlight).
-              */}
-                <span className="watchlist-candidate-name-text">
-                  {c.name_np}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-
-        {/* Right — 3 columns: symbol image + vote count */}
-        <div className="watchlist-symbols-row">
-          {data.topCandidates.map((c) => (
-            <div
-              key={c.candidate_id}
-              className="watchlist-symbol-col"
-              onMouseEnter={() => enterParty(c.party)}
-              onMouseLeave={() => leaveParty()}
-            >
-              {c.symbol_id && c.symbol_id !== 0 ? (
-                <img
-                  className="watchlist-symbol-img"
-                  src={`${SYMBOL_IMG_URL}/${c.symbol_id}.jpg`}
-                  alt={c.party}
-                  title={c.party}
-                  loading="lazy"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    const parent = (e.target as HTMLElement).parentElement;
-                    if (
-                      parent &&
-                      !parent.querySelector('.watchlist-symbol-fallback')
-                    ) {
-                      const fallback = document.createElement('div');
-                      fallback.className = 'watchlist-symbol-fallback';
-                      fallback.title = c.party || '';
-                      fallback.innerText = c.party?.slice(0, 2) || '??';
-                      parent.appendChild(fallback);
-                    }
-                  }}
-                />
-              ) : (
-                <div className="watchlist-symbol-fallback" title={c.party}>
-                  {c.party?.slice(0, 2) || '??'}
+                >
+                  {c.symbol_id && c.symbol_id !== 0 ? (
+                    <img
+                      className="watchlist-symbol-img"
+                      src={`${SYMBOL_IMG_URL}/${c.symbol_id}.jpg`}
+                      alt={getNameFromFields(c.party_en, c.party, locale)}
+                      title={getNameFromFields(c.party_en, c.party, locale)}
+                      loading="lazy"
+                      onError={(e) => {
+                        const img = e.target as HTMLImageElement;
+                        if (img.src.startsWith(window.location.origin)) {
+                          img.src = `${SYMBOL_IMG_REMOTE}/${c.symbol_id}.jpg`;
+                          return;
+                        }
+                        img.style.display = 'none';
+                        const parent = img.parentElement;
+                        if (
+                          parent &&
+                          !parent.querySelector('.watchlist-symbol-fallback')
+                        ) {
+                          const fallback = document.createElement('div');
+                          fallback.className = 'watchlist-symbol-fallback';
+                          fallback.title =
+                            getNameFromFields(c.party_en, c.party, locale) ||
+                            '';
+                          fallback.innerText = c.party?.slice(0, 2) || '??';
+                          parent.appendChild(fallback);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className="watchlist-symbol-fallback"
+                      title={getNameFromFields(c.party_en, c.party, locale)}
+                    >
+                      {c.party?.slice(0, 2) || '??'}
+                    </div>
+                  )}
+                  <span className="watchlist-symbol-votes">
+                    {c.votes.toLocaleString()}
+                  </span>
                 </div>
-              )}
-              <span className="watchlist-symbol-votes">
-                {c.votes.toLocaleString()}
-              </span>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        );
+      })()}
     </article>
   );
 };
@@ -364,46 +454,78 @@ const WatchlistItem: React.FC<{
 // Main component
 // ---------------------------------------------------------------------------
 
+/**
+ * Resolve a district display name for the given locale.
+ *
+ * Strategy:
+ *  - English: use the translation dictionary key `district_{id}` which
+ *    has proper English names ("Kathmandu", "Taplejung", etc.).
+ *  - Nepali: use the raw Nepali name from the API cache.
+ *
+ * Falls back to the Nepali name (or "District {id}") when no English
+ * translation exists.
+ */
+function resolveDistrictName(
+  districtId: number,
+  nepaliName: string | undefined,
+  locale: string,
+  t: (key: string, params?: Record<string, string | number>) => string
+): string {
+  if (locale === 'en') {
+    const translated = t(`district_${districtId}` as any);
+    // t() returns the raw key when no match is found — detect that
+    if (translated && translated !== `district_${districtId}`) {
+      return translated;
+    }
+  }
+  return nepaliName || t('district_fallback', { id: String(districtId) });
+}
+
 const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
   ({ stats, candidates, leadingCandidates, map }, ref) => {
     const currentElection = getCurrentElection();
+    const { locale } = useLanguage();
+    const { t } = useTranslation();
 
     // ---- Incomplete Data Warning ----
     const DataWarning = currentElection.missingData ? (
       <div
         className="data-warning-banner"
         style={{
-          backgroundColor: 'rgba(255, 193, 7, 0.1)',
-          border: '1px solid #ffc107',
-          color: '#ffc107',
-          padding: '12px',
-          marginBottom: '16px',
-          borderRadius: '4px',
-          fontSize: '0.85rem',
-          lineHeight: '1.4',
+          backgroundColor: 'rgba(184, 134, 11, 0.06)',
+          border: '1px solid rgba(184, 134, 11, 0.3)',
+          color: '#8b6914',
+          padding: '10px 12px',
+          marginBottom: '12px',
+          fontSize: '0.8rem',
+          lineHeight: '1.45',
         }}
       >
-        Symbol images for this year are unavailable from the source.
+        {t('data_warning_symbols')}
       </div>
     ) : null;
 
     // ---- Leaderboard ----
     const partyEntries = stats ? Object.entries(stats.partyStandings) : [];
-    const sortedParties = [...partyEntries].sort(([, a], [, b]) => b - a);
+    const sortedParties = [...partyEntries].sort(([, a], [, b]) => {
+      const totalA = a.won + a.leading;
+      const totalB = b.won + b.leading;
+      return totalB - totalA;
+    });
     const topFive = sortedParties.slice(0, 5);
 
-    // ---- District name map (fetched once) ----
-    const [districtNames, setDistrictNames] = useState<Record<number, string>>(
-      {}
-    );
+    // ---- District name map (Nepali names from API, keyed by id) ----
+    const [districtNamesNp, setDistrictNamesNp] = useState<
+      Record<number, string>
+    >({});
 
     useEffect(() => {
-      getDistrictIdentifiers().then((ids) => {
-        const map: Record<number, string> = {};
+      getDistrictIdentifiers().then((ids: DistrictIdentifier[]) => {
+        const m: Record<number, string> = {};
         for (const d of ids) {
-          map[d.id] = d.name;
+          m[d.id] = d.name;
         }
-        setDistrictNames(map);
+        setDistrictNamesNp(m);
       });
     }, []);
 
@@ -444,39 +566,85 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
     const { entries, haystack } = useMemo(() => {
       const entries: SearchEntry[] = [];
 
-      // Candidate entries
-      for (const c of candidates) {
-        entries.push({
-          label: c.name_np,
-          meta: `${c.party} · ${c.votes.toLocaleString()} votes`,
-          type: 'candidate',
-          constituencyId: c.constituency_id,
-        });
+      try {
+        // Candidate entries
+        for (const c of candidates) {
+          if (!c) continue;
+
+          // Build a bilingual search string: "English Name नेपाली नाम PartyEn पार्टी"
+          const displayLabel = getName(c, locale) || 'Unknown Candidate';
+          const nameEn = c.name_en || '';
+          const nameNp = c.name_np || '';
+          const partyEn = c.party_en || '';
+          const partyNp = c.party || '';
+          // Deduplicate: if locale already picked one, include the other
+          const searchParts = [nameNp, nameEn, partyNp, partyEn].filter(
+            Boolean
+          );
+          const searchText = [...new Set(searchParts)].join(' ');
+
+          entries.push({
+            label: displayLabel,
+            searchText,
+            meta: `${getNameFromFields(c.party_en, c.party, locale) || 'Independent'} · ${(c.votes || 0).toLocaleString()} ${t('votes_label')}`,
+            type: 'candidate',
+            constituencyId: c.constituency_id,
+          } as SearchEntry);
+        }
+
+        // Constituency entries (one per unique constituency_id)
+        const seenConstituencies = new Set<number>();
+        for (const c of candidates) {
+          if (seenConstituencies.has(c.constituency_id)) continue;
+          seenConstituencies.add(c.constituency_id);
+
+          // Resolve both English and Nepali district names
+          const dNameDisplay = resolveDistrictName(
+            c.district,
+            districtNamesNp[c.district],
+            locale,
+            t
+          );
+          const dNameEn = resolveDistrictName(
+            c.district,
+            districtNamesNp[c.district],
+            'en',
+            t
+          );
+          const dNameNp = resolveDistrictName(
+            c.district,
+            districtNamesNp[c.district],
+            'np',
+            t
+          );
+          // Extract the sub-constituency number from the composite ID
+          const subId = String(c.constituency_id).slice(
+            String(c.district).length
+          );
+
+          // Bilingual search text: "Kathmandu - 1 काठमाडौँ - 1"
+          const displayLabel = `${dNameDisplay} - ${subId}`;
+          const searchParts = [
+            `${dNameEn} - ${subId}`,
+            `${dNameNp} - ${subId}`,
+          ];
+          const searchText = [...new Set(searchParts)].join(' ');
+
+          entries.push({
+            label: displayLabel,
+            searchText,
+            meta: t('search_type_constituency'),
+            type: 'constituency',
+            constituencyId: c.constituency_id,
+          });
+        }
+      } catch (err) {
+        console.error('[Sidebar] Error building search entries:', err);
       }
 
-      // Constituency entries (one per unique constituency_id)
-      const seenConstituencies = new Set<number>();
-      for (const c of candidates) {
-        if (seenConstituencies.has(c.constituency_id)) continue;
-        seenConstituencies.add(c.constituency_id);
-
-        const dName = districtNames[c.district] || `District ${c.district}`;
-        // Extract the sub-constituency number from the composite ID
-        const subId = String(c.constituency_id).slice(
-          String(c.district).length
-        );
-
-        entries.push({
-          label: `${dName} - ${subId}`,
-          meta: `Constituency`,
-          type: 'constituency',
-          constituencyId: c.constituency_id,
-        });
-      }
-
-      const haystack = entries.map((e) => e.label);
+      const haystack = entries.map((e) => e.searchText || e.label || '');
       return { entries, haystack };
-    }, [candidates, districtNames]);
+    }, [candidates, districtNamesNp, locale, t]);
 
     /**
      * Run the ranked uFuzzy search whenever the query changes.
@@ -527,6 +695,8 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
     }));
 
     const handleRemove = (constituencyId: number) => {
+      // Clear any lingering highlights for this constituency before removing
+      if (map) clearHighlights(map, leadingCandidates);
       setWatchedIds((prev) => prev.filter((id) => id !== constituencyId));
     };
 
@@ -550,9 +720,12 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
             0
           );
 
-          const dName =
-            districtNames[topCandidates[0].district] ||
-            `District ${topCandidates[0].district}`;
+          const dName = resolveDistrictName(
+            topCandidates[0].district,
+            districtNamesNp[topCandidates[0].district],
+            locale,
+            t
+          );
           const subId = String(cId).slice(
             String(topCandidates[0].district).length
           );
@@ -563,30 +736,40 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
             (c) => c.constituency_id === cId
           );
 
+          const leaderPartyDisplay = leader
+            ? getNameFromFields(leader.party_en, leader.party, locale)
+            : topCandidates[0]
+              ? getNameFromFields(
+                  topCandidates[0].party_en,
+                  topCandidates[0].party,
+                  locale
+                )
+              : '—';
+
           return {
             constituencyId: cId,
             districtName: dName,
             constituencyName: subId,
             topCandidates,
             totalVotes,
-            leadingParty: leader?.party ?? topCandidates[0]?.party ?? '—',
+            leadingParty: leaderPartyDisplay,
           };
         })
         .filter((card): card is WatchlistCardData => card !== null);
-    }, [watchedIds, candidates, leadingCandidates, districtNames]);
+    }, [watchedIds, candidates, leadingCandidates, districtNamesNp, locale, t]);
 
     return (
       <aside className="sidebar-map-panel">
         {DataWarning}
         {/* Watchlist Section */}
         <div className="sidebar-section watchlist-section">
-          <h2 id="watchlist-text">Your Watchlist</h2>
+          <h2 id="watchlist-text">{t('watchlist_title')}</h2>
 
           {/* Search Bar */}
           <div className="search-bar-container" ref={dropdownRef}>
             <input
               type="text"
-              placeholder="Search candidates or constituencies..."
+              placeholder={t('search_placeholder')}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -594,7 +777,7 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
               }}
               onFocus={() => setShowResults(true)}
               className="search-bar-input"
-              aria-label="Search candidates or constituencies"
+              aria-label={t('search_aria')}
               role="combobox"
               aria-expanded={showResults && results.length > 0}
             />
@@ -613,7 +796,7 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
                     ))}
                   </ul>
                 ) : (
-                  <p className="search-no-results">No results found</p>
+                  <p className="search-no-results">{t('search_no_results')}</p>
                 )}
               </div>
             )}
@@ -623,9 +806,7 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
           <div className="watchlist-scroll-container">
             <div className="watchlist-content">
               {watchlistCards.length === 0 ? (
-                <p className="hint-text">
-                  Search for a candidate or constituency to add it here.
-                </p>
+                <p className="hint-text">{t('watchlist_hint')}</p>
               ) : (
                 watchlistCards.map((card) => (
                   <WatchlistItem
@@ -644,19 +825,100 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
         {/* Leaderboard Section */}
         <div className="sidebar-section leaderboard-section">
           <div className="parties-index">
-            <h3>Leaderboard (Top 5)</h3>
+            <h3>{t('leaderboard_title')}</h3>
             {topFive.length > 0 ? (
-              <ul className="index-list">
-                {topFive.map(([party, seats], index) => (
-                  <li key={party} className="index-item">
-                    <span className="rank">#{index + 1}</span>
-                    <span className="party-name">{party}</span>
-                    <span className="seat-count">{seats}</span>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div
+                  className="leaderboard-header"
+                  style={{
+                    display: 'flex',
+                    fontSize: '0.75rem',
+                    color: '#666',
+                    marginBottom: '0.25rem',
+                    paddingRight: '0.5rem',
+                    fontFamily: 'var(--font-heading)',
+                  }}
+                >
+                  <span style={{ flex: 1 }}></span>
+                  <span style={{ width: '2.5rem', textAlign: 'center' }}>
+                    {t('leaderboard_won' as any)}
+                  </span>
+                  <span style={{ width: '2.5rem', textAlign: 'center' }}>
+                    {t('leaderboard_lead' as any)}
+                  </span>
+                </div>
+                <ul className="index-list">
+                  {topFive.map(([party, counts]) => {
+                    const partyColor =
+                      (colorMapping.parties as any)[party] ||
+                      colorMapping.others;
+                    const sample = leadingCandidates.find(
+                      (c) => c.party === party
+                    );
+                    const displayName = sample
+                      ? getNameFromFields(sample.party_en, sample.party, locale)
+                      : party;
+
+                    const enterParty = () => {
+                      if (!map) return;
+                      const ids = new Set(
+                        leadingCandidates
+                          .filter((c) => c.party === party)
+                          .map((c) => c.constituency_id)
+                      );
+                      highlightConstituencies(map, ids, leadingCandidates);
+                    };
+
+                    const leaveParty = () => {
+                      if (map) clearHighlights(map, leadingCandidates);
+                    };
+
+                    return (
+                      <li key={party} className="index-item">
+                        <span className="rank">
+                          <span
+                            className="rank-dot"
+                            style={{ backgroundColor: partyColor }}
+                            title={displayName}
+                            onMouseEnter={enterParty}
+                            onMouseLeave={leaveParty}
+                          />
+                        </span>
+                        <span
+                          className="party-name"
+                          onMouseEnter={enterParty}
+                          onMouseLeave={leaveParty}
+                          title={displayName}
+                        >
+                          {displayName}
+                        </span>
+                        <div style={{ display: 'flex' }}>
+                          <span
+                            className="seat-count"
+                            style={{ width: '2.5rem', textAlign: 'center' }}
+                            title={t('leaderboard_won' as any)}
+                          >
+                            {counts.won}
+                          </span>
+                          <span
+                            className="seat-count"
+                            style={{
+                              width: '2.5rem',
+                              textAlign: 'center',
+                              color: '#888',
+                            }}
+                            title={t('leaderboard_lead' as any)}
+                          >
+                            {counts.leading}
+                          </span>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
             ) : (
-              <p className="status-message">Counting in progress...</p>
+              <p className="status-message">{t('leaderboard_counting')}</p>
             )}
           </div>
         </div>
