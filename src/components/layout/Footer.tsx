@@ -1,11 +1,12 @@
 import React from 'react';
+import { useTranslation } from '../../i18n';
 
 const Footer: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <footer>
-      <small>
-        This open source project is not affiliated with the Government of Nepal
-      </small>
+      <small>{t('footer_disclaimer')}</small>
     </footer>
   );
 };

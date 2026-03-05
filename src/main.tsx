@@ -1,12 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { LanguageProvider } from './i18n';
 
 /**
  * Root entry point for the React application.
- * This replaces the previous imperative init() function from main.ts.
- * The MapLibre initialization and data fetching will be moved into
- * React components and hooks in the next phases.
+ *
+ * The <LanguageProvider> wraps the entire app so that every component
+ * can access the current locale via `useLanguage()` and translated
+ * UI strings via `useTranslation()`.
  */
 
 const rootElement = document.getElementById('root');
@@ -15,7 +17,9 @@ if (rootElement) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <React.StrictMode>
-      <App />
+      <LanguageProvider>
+        <App />
+      </LanguageProvider>
     </React.StrictMode>
   );
 } else {
