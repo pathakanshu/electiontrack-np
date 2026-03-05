@@ -479,6 +479,55 @@ export async function downloadCache() {
       `✅ Saved ${constituencyIds.length} constituencies to constituencies.json`
     );
 
+    // Step 5: Download PR national aggregate (if configured for this election)
+    if (election.source.prNational) {
+      const prFilename = 'PRHoRPartyTop5.txt';
+      const prOutputPath = path.join(yearCacheDir, prFilename);
+      const prEcnPath = `JSONFiles/Election${election.year}/Common/${prFilename}`;
+
+      if (await fileExists(prOutputPath)) {
+        const prSize = await humanFileSize(prOutputPath);
+        log(
+          `\n📦 PR national aggregate already cached (${prSize}), skipping download.`
+        );
+      } else {
+        try {
+          log('\n⬇️  Downloading PR national aggregate...');
+          log(`   ECN path: ${prEcnPath}`);
+          log(`   Fallback URL: ${election.source.prNational}`);
+
+          const text = await fetchWithFallback(
+            prEcnPath,
+            election.source.prNational
+          );
+
+          // Verify valid JSON before saving
+          const parsed = JSON.parse(text);
+          if (!Array.isArray(parsed)) {
+            log(
+              '⚠️  PR national data is not an array — skipping (may not be published yet).'
+            );
+          } else {
+            await fsPromises.writeFile(prOutputPath, text);
+            const prSize = await humanFileSize(prOutputPath);
+            log(
+              `✅ Downloaded and cached PR national aggregate (${prSize}, ${parsed.length} parties)`
+            );
+          }
+        } catch (err) {
+          // PR data is optional — log but don't fail the entire cache download.
+          log(
+            `⚠️  Could not download PR national aggregate: ${(err as Error).message}`
+          );
+          log('   This is non-fatal — FPTP data was downloaded successfully.');
+        }
+      }
+    } else {
+      log(
+        '\nℹ️  No PR source URL configured for this election — skipping PR download.'
+      );
+    }
+
     const totalTime = (Date.now() - start) / 1000;
     log(
       `\n✨ Cache download completed successfully in ${totalTime.toFixed(2)}s`
@@ -488,6 +537,9 @@ export async function downloadCache() {
     log(`   /public/cache/${election.year}/symbols.json`);
     log('   /public/cache/symbols/ (shared images)');
     log(`   /public/cache/${election.year}/constituencies.json`);
+    if (election.source.prNational) {
+      log(`   /public/cache/${election.year}/PRHoRPartyTop5.txt`);
+    }
     log('\nAll data is now cached locally for offline use.');
   } catch (err) {
     const e = err as Error;

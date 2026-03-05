@@ -18,7 +18,7 @@ const en: Record<string, string> = {
   nav_tos: 'ToS',
   language_english: 'English',
   language_nepali: 'नेपाली',
-  heading_title: 'Election Tracker Nepal',
+  heading_title: 'Nepal Election Tracker',
   heading_now_tracking: 'Now Tracking:',
   heading_incomplete_data: '⚠ incomplete data',
   heading_incomplete_data_tooltip:
@@ -74,6 +74,7 @@ const en: Record<string, string> = {
 
   // -- Statistics Page --
   stats_title: 'Election Statistics',
+  stats_subtitle_prefix: 'Data found for:',
   stats_subtitle_constituencies: 'constituencies',
   stats_subtitle_candidates: 'candidates',
   stats_subtitle_votes: 'votes cast',
@@ -95,20 +96,22 @@ const en: Record<string, string> = {
   stats_nav_simulation: 'Simulation',
 
   // Stats cards
-  stats_card_seats: 'Seats',
-  stats_card_candidates_sub: '{count} candidates',
-  stats_card_votes_cast: 'Votes Cast',
-  stats_card_avg_winner_share: 'Avg Winner Share',
-  stats_card_margin: 'Margin: {value}',
-  stats_card_competitiveness: 'Competitiveness',
-  stats_card_competitiveness_sub: '0 = landslide, 100 = dead heat',
-  stats_card_wasted_votes: 'Wasted Votes',
-  stats_card_wasted_votes_sub: 'Votes cast for losing candidates',
-  stats_card_candidates_per_seat: 'Candidates / Seat',
-  stats_card_majority_wins: 'Majority Wins',
-  stats_card_majority_wins_sub: '{count} won with < 50%',
-  stats_card_fragmented: 'Fragmented',
-  stats_card_fragmented_sub: 'Winner below 35% vote share',
+  stats_card_seats: 'Total Seats Contested',
+  stats_card_candidates_sub: '{count} candidates across all constituencies',
+  stats_card_votes_cast: 'Total Votes Cast',
+  stats_card_avg_winner_share: 'Avg. Winner Vote Share',
+  stats_card_margin: 'Avg. victory margin: {value}',
+  stats_card_competitiveness: 'Competitiveness Index',
+  stats_card_competitiveness_sub:
+    'Avg. score — 0 is a landslide, 100 is a dead heat',
+  stats_card_wasted_votes: 'Wasted Vote Rate',
+  stats_card_wasted_votes_sub:
+    'Share of ballots that went to non-winning candidates',
+  stats_card_candidates_per_seat: 'Avg. Candidates per Seat',
+  stats_card_majority_wins: 'Majority Wins (>50%)',
+  stats_card_majority_wins_sub: '{count} seats won without a majority',
+  stats_card_fragmented: 'Fragmented Seats',
+  stats_card_fragmented_sub: 'Seats where the winner got under 35% of the vote',
 
   // Core Results section
   stats_core_title: 'Core Results',
@@ -282,6 +285,18 @@ const en: Record<string, string> = {
   // Navbar
   nav_map: '← Map',
   nav_statistics: 'Statistics →',
+
+  // Voting mode toggle (FPTP ↔ PR)
+  mode_fptp: 'FPTP',
+  mode_fptp_long: 'First Past The Post',
+  mode_pr: 'PR',
+  mode_pr_long: 'Proportional Representation',
+  mode_toggle_aria: 'Switch between FPTP and PR results',
+
+  // PR Leaderboard
+  leaderboard_pr_title: 'PR Votes (Top 5)',
+  leaderboard_pr_votes: 'Votes',
+  leaderboard_pr_no_data: 'No PR data available for this election.',
 
   // -- Provinces --
   province_1: 'Koshi Province',

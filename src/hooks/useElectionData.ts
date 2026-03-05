@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { bundleCandidates, bundleLeadingCandidates } from '../data/dataBundler';
-import { Candidate } from '../types/election';
+import {
+  bundleCandidates,
+  bundleLeadingCandidates,
+  bundlePRNational,
+} from '../data/dataBundler';
+import { Candidate, PRPartyAggregate } from '../types/election';
 
 /**
  * Custom hook to fetch and process election data.
@@ -15,6 +19,11 @@ import { Candidate } from '../types/election';
  *
  * The first fetch (on mount) shows the loading spinner. Subsequent fetches
  * triggered by refreshKey changes happen silently in the background.
+ *
+ * PR (Proportional Representation) data is fetched in parallel with FPTP
+ * data. If PR data is unavailable for the current election (no endpoint or
+ * empty response), `prParties` will be an empty array — the rest of the
+ * app treats PR as purely additive and degrades gracefully.
  */
 export interface ElectionStats {
   totalVotes: number;
@@ -71,6 +80,7 @@ export const useElectionData = (refreshKey: number = 0) => {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [leadingCandidates, setLeadingCandidates] = useState<Candidate[]>([]);
   const [stats, setStats] = useState<ElectionStats | null>(null);
+  const [prParties, setPrParties] = useState<PRPartyAggregate[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -83,14 +93,18 @@ export const useElectionData = (refreshKey: number = 0) => {
    * Process a set of candidates into derived state (leading candidates,
    * stats) and update all the hook's state atoms.
    */
-  const processAndSetData = useCallback(async (allCandidates: Candidate[]) => {
-    const winners = await bundleLeadingCandidates(allCandidates);
-    const newStats = deriveStats(allCandidates, winners);
+  const processAndSetData = useCallback(
+    async (allCandidates: Candidate[], prData: PRPartyAggregate[]) => {
+      const winners = await bundleLeadingCandidates(allCandidates);
+      const newStats = deriveStats(allCandidates, winners);
 
-    setCandidates(allCandidates);
-    setLeadingCandidates(winners);
-    setStats(newStats);
-  }, []);
+      setCandidates(allCandidates);
+      setLeadingCandidates(winners);
+      setStats(newStats);
+      setPrParties(prData);
+    },
+    []
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -102,10 +116,20 @@ export const useElectionData = (refreshKey: number = 0) => {
           setLoading(true);
         }
 
-        const allCandidates = await bundleCandidates();
+        // Fetch FPTP candidates and PR national aggregate in parallel.
+        // PR fetch is wrapped in a catch so it never blocks the FPTP path —
+        // if PR fails or is unavailable we just get an empty array.
+        const [allCandidates, prData] = await Promise.all([
+          bundleCandidates(),
+          bundlePRNational().catch((err) => {
+            console.warn('[useElectionData] PR data fetch failed:', err);
+            return [] as PRPartyAggregate[];
+          }),
+        ]);
+
         if (cancelled) return;
 
-        await processAndSetData(allCandidates);
+        await processAndSetData(allCandidates, prData);
 
         // Clear any previous error on success
         setError(null);
@@ -141,6 +165,7 @@ export const useElectionData = (refreshKey: number = 0) => {
     candidates,
     leadingCandidates,
     stats,
+    prParties,
     loading,
     error,
   };

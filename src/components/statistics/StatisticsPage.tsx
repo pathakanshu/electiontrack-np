@@ -186,6 +186,7 @@ const StatisticsPage: React.FC<{ refreshKey?: number }> = ({
       <div className="stats-page__header">
         <h1 className="stats-page__title">{tt('stats_title')}</h1>
         <p className="stats-page__subtitle">
+          {tt('stats_subtitle_prefix')}{' '}
           <strong>{summary.totalConstituencies}</strong>{' '}
           {tt('stats_subtitle_constituencies')} &middot;{' '}
           <strong>{formatNumber(summary.totalCandidates)}</strong>{' '}

@@ -113,7 +113,7 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
             localeRef.current === 'np'
               ? 'संरक्षण क्षेत्र'
               : 'Conservation Area';
-          html = `<div style="padding:4px 8px;color:#000;font-weight:600;font-family:sans-serif;">${areaLabel}</div>`;
+          html = `<div style="padding:4px 8px;color:var(--color-text);font-weight:600;font-family:sans-serif;">${areaLabel}</div>`;
         } else {
           // Resolve district name: use i18n key `district_{id}` for English,
           // fall back to the Nepali name baked into the GeoJSON.
@@ -144,10 +144,10 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
               )
             : '';
           const leaderLine = leader
-            ? `<div style="font-size:0.78rem;color:#333;margin-top:2px;">${leaderName} · ${leaderParty}</div>`
+            ? `<div style="font-size:0.78rem;color:var(--color-text-secondary);margin-top:2px;">${leaderName} · ${leaderParty}</div>`
             : '';
           html = `<div style="padding:4px 8px;font-family:sans-serif;">
-            <div style="font-weight:600;color:#000;">${header}</div>
+            <div style="font-weight:600;color:var(--color-text);">${header}</div>
             ${leaderLine}
           </div>`;
         }
@@ -241,7 +241,7 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
         ref={mapContainerRef}
         style={{ width: '100%', height: '100%' }}
       />
-      <ColorIndex leadingCandidates={leadingCandidates} />
+      <ColorIndex leadingCandidates={leadingCandidates} map={mapRef.current} />
     </div>
   );
 };

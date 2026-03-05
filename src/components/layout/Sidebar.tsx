@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import uFuzzy from '@leeoniya/ufuzzy';
 import { ElectionStats } from '../../hooks/useElectionData';
-import { Candidate } from '../../types/election';
+import { Candidate, PRPartyAggregate } from '../../types/election';
 import { getDistrictIdentifiers } from '../../data/dataBundler';
 import { useLanguage, useTranslation } from '../../i18n';
 import { getName, getNameFromFields } from '../../i18n/getName';
@@ -28,6 +28,8 @@ interface SidebarProps {
   candidates: Candidate[];
   /** The single leading candidate per constituency — used for party highlighting. */
   leadingCandidates: Candidate[];
+  /** National PR party vote totals — empty array when PR data is unavailable. */
+  prParties: PRPartyAggregate[];
   map: any;
 }
 
@@ -481,8 +483,246 @@ function resolveDistrictName(
   return nepaliName || t('district_fallback', { id: String(districtId) });
 }
 
+// ---------------------------------------------------------------------------
+// Leaderboard — self-contained section with optional FPTP ↔ PR toggle
+// ---------------------------------------------------------------------------
+
+const LeaderboardSection: React.FC<{
+  topFive: [string, { won: number; leading: number }][];
+  prParties: PRPartyAggregate[];
+  leadingCandidates: Candidate[];
+  map: any;
+}> = ({ topFive, prParties, leadingCandidates, map }) => {
+  // Read hasPR directly from the active election config on every render
+  // rather than receiving it as a prop — this guarantees we always reflect
+  // the latest election even across remounts triggered by election switches.
+  const hasPR = !!getCurrentElection().hasPR;
+  const { locale } = useLanguage();
+  const { t } = useTranslation();
+  const [showPR, setShowPR] = useState(false);
+
+  // If the election doesn't have PR, always show FPTP
+  const isPR = hasPR && showPR;
+
+  // Set a data attribute on <html> so CSS can grey out the map when PR is active.
+  // Uses the derived `isPR` value (not raw `showPR`) so it stays in sync with
+  // what's actually rendered — e.g. if hasPR flips to false, the map ungreys.
+  useEffect(() => {
+    if (isPR) {
+      document.documentElement.setAttribute('data-pr-mode', '');
+    } else {
+      document.documentElement.removeAttribute('data-pr-mode');
+    }
+    return () => {
+      document.documentElement.removeAttribute('data-pr-mode');
+    };
+  }, [isPR]);
+
+  // Total PR votes for percentage calculation
+  const totalPRVotes = useMemo(
+    () => prParties.reduce((sum, p) => sum + p.votes, 0),
+    [prParties]
+  );
+
+  return (
+    <div className="sidebar-section leaderboard-section">
+      <div className="parties-index">
+        {/* Title row with optional toggle */}
+        <div className="leaderboard-title-row">
+          <h3>
+            {isPR ? t('leaderboard_pr_title' as any) : t('leaderboard_title')}
+          </h3>
+          {hasPR && (
+            <div
+              className="voting-mode-toggle voting-mode-toggle--leaderboard"
+              role="radiogroup"
+              aria-label={t('mode_toggle_aria' as any)}
+            >
+              <button
+                className={`voting-mode-btn${!showPR ? ' voting-mode-btn--active' : ''}`}
+                onClick={() => setShowPR(false)}
+                aria-pressed={!showPR}
+                title={t('mode_fptp_long' as any)}
+              >
+                {t('mode_fptp' as any)}
+              </button>
+              <button
+                className={`voting-mode-btn${showPR ? ' voting-mode-btn--active' : ''}`}
+                onClick={() => setShowPR(true)}
+                aria-pressed={showPR}
+                title={t('mode_pr_long' as any)}
+              >
+                {t('mode_pr' as any)}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isPR ? (
+          /* ── PR view: party vote totals with percentage ── */
+          prParties.length > 0 ? (
+            <div key="pr">
+              <div
+                className="leaderboard-header"
+                style={{
+                  display: 'flex',
+                  fontSize: '0.75rem',
+                  color: '#666',
+                  marginBottom: '0.25rem',
+                  paddingRight: '0.5rem',
+                  fontFamily: 'var(--font-heading)',
+                }}
+              >
+                <span style={{ flex: 1 }}></span>
+                <span style={{ width: '5.5rem', textAlign: 'right' }}>
+                  {t('leaderboard_pr_votes' as any)}
+                </span>
+              </div>
+              <ul className="index-list">
+                {prParties.slice(0, 5).map((entry) => {
+                  const dotColor =
+                    (colorMapping.parties as any)[entry.party] ||
+                    colorMapping.others;
+                  const displayName = getNameFromFields(
+                    entry.party_en,
+                    entry.party,
+                    locale
+                  );
+                  const pct =
+                    totalPRVotes > 0
+                      ? ((entry.votes / totalPRVotes) * 100).toFixed(1)
+                      : '0.0';
+
+                  return (
+                    <li key={entry.party_id} className="index-item">
+                      <span className="rank">
+                        <span
+                          className="rank-dot"
+                          style={{ backgroundColor: dotColor }}
+                          title={displayName}
+                        />
+                      </span>
+                      <span
+                        className="party-name"
+                        title={`${displayName} — ${entry.votes.toLocaleString()} (${pct}%)`}
+                      >
+                        {displayName}
+                      </span>
+                      <span
+                        className="seat-count pr-votes"
+                        title={entry.votes.toLocaleString()}
+                      >
+                        {entry.votes.toLocaleString()}
+                        <span className="pr-pct"> ({pct}%)</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : (
+            <p className="status-message">
+              {t('leaderboard_pr_no_data' as any)}
+            </p>
+          )
+        ) : /* ── FPTP view: seat counts (won / leading) ── */
+        topFive.length > 0 ? (
+          <div key="fptp">
+            <div
+              className="leaderboard-header"
+              style={{
+                display: 'flex',
+                fontSize: '0.75rem',
+                color: '#666',
+                marginBottom: '0.25rem',
+                paddingRight: '0.5rem',
+                fontFamily: 'var(--font-heading)',
+              }}
+            >
+              <span style={{ flex: 1 }}></span>
+              <span style={{ width: '2.5rem', textAlign: 'center' }}>
+                {t('leaderboard_won' as any)}
+              </span>
+              <span style={{ width: '2.5rem', textAlign: 'center' }}>
+                {t('leaderboard_lead' as any)}
+              </span>
+            </div>
+            <ul className="index-list">
+              {topFive.map(([party, counts]) => {
+                const pc =
+                  (colorMapping.parties as any)[party] || colorMapping.others;
+                const sample = leadingCandidates.find((c) => c.party === party);
+                const displayName = sample
+                  ? getNameFromFields(sample.party_en, sample.party, locale)
+                  : party;
+
+                const enterParty = () => {
+                  if (!map) return;
+                  const ids = new Set(
+                    leadingCandidates
+                      .filter((c) => c.party === party)
+                      .map((c) => c.constituency_id)
+                  );
+                  highlightConstituencies(map, ids, leadingCandidates);
+                };
+                const leaveParty = () => {
+                  if (map) clearHighlights(map, leadingCandidates);
+                };
+
+                return (
+                  <li key={party} className="index-item">
+                    <span className="rank">
+                      <span
+                        className="rank-dot"
+                        style={{ backgroundColor: pc }}
+                        title={displayName}
+                        onMouseEnter={enterParty}
+                        onMouseLeave={leaveParty}
+                      />
+                    </span>
+                    <span
+                      className="party-name"
+                      onMouseEnter={enterParty}
+                      onMouseLeave={leaveParty}
+                      title={displayName}
+                    >
+                      {displayName}
+                    </span>
+                    <div style={{ display: 'flex' }}>
+                      <span
+                        className="seat-count"
+                        style={{ width: '2.5rem', textAlign: 'center' }}
+                        title={t('leaderboard_won' as any)}
+                      >
+                        {counts.won}
+                      </span>
+                      <span
+                        className="seat-count"
+                        style={{
+                          width: '2.5rem',
+                          textAlign: 'center',
+                          color: '#888',
+                        }}
+                        title={t('leaderboard_lead' as any)}
+                      >
+                        {counts.leading}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : (
+          <p className="status-message">{t('leaderboard_counting')}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
-  ({ stats, candidates, leadingCandidates, map }, ref) => {
+  ({ stats, candidates, leadingCandidates, prParties, map }, ref) => {
     const currentElection = getCurrentElection();
     const { locale } = useLanguage();
     const { t } = useTranslation();
@@ -822,106 +1062,16 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
           </div>
         </div>
 
-        {/* Leaderboard Section */}
-        <div className="sidebar-section leaderboard-section">
-          <div className="parties-index">
-            <h3>{t('leaderboard_title')}</h3>
-            {topFive.length > 0 ? (
-              <>
-                <div
-                  className="leaderboard-header"
-                  style={{
-                    display: 'flex',
-                    fontSize: '0.75rem',
-                    color: '#666',
-                    marginBottom: '0.25rem',
-                    paddingRight: '0.5rem',
-                    fontFamily: 'var(--font-heading)',
-                  }}
-                >
-                  <span style={{ flex: 1 }}></span>
-                  <span style={{ width: '2.5rem', textAlign: 'center' }}>
-                    {t('leaderboard_won' as any)}
-                  </span>
-                  <span style={{ width: '2.5rem', textAlign: 'center' }}>
-                    {t('leaderboard_lead' as any)}
-                  </span>
-                </div>
-                <ul className="index-list">
-                  {topFive.map(([party, counts]) => {
-                    const partyColor =
-                      (colorMapping.parties as any)[party] ||
-                      colorMapping.others;
-                    const sample = leadingCandidates.find(
-                      (c) => c.party === party
-                    );
-                    const displayName = sample
-                      ? getNameFromFields(sample.party_en, sample.party, locale)
-                      : party;
-
-                    const enterParty = () => {
-                      if (!map) return;
-                      const ids = new Set(
-                        leadingCandidates
-                          .filter((c) => c.party === party)
-                          .map((c) => c.constituency_id)
-                      );
-                      highlightConstituencies(map, ids, leadingCandidates);
-                    };
-
-                    const leaveParty = () => {
-                      if (map) clearHighlights(map, leadingCandidates);
-                    };
-
-                    return (
-                      <li key={party} className="index-item">
-                        <span className="rank">
-                          <span
-                            className="rank-dot"
-                            style={{ backgroundColor: partyColor }}
-                            title={displayName}
-                            onMouseEnter={enterParty}
-                            onMouseLeave={leaveParty}
-                          />
-                        </span>
-                        <span
-                          className="party-name"
-                          onMouseEnter={enterParty}
-                          onMouseLeave={leaveParty}
-                          title={displayName}
-                        >
-                          {displayName}
-                        </span>
-                        <div style={{ display: 'flex' }}>
-                          <span
-                            className="seat-count"
-                            style={{ width: '2.5rem', textAlign: 'center' }}
-                            title={t('leaderboard_won' as any)}
-                          >
-                            {counts.won}
-                          </span>
-                          <span
-                            className="seat-count"
-                            style={{
-                              width: '2.5rem',
-                              textAlign: 'center',
-                              color: '#888',
-                            }}
-                            title={t('leaderboard_lead' as any)}
-                          >
-                            {counts.leading}
-                          </span>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : (
-              <p className="status-message">{t('leaderboard_counting')}</p>
-            )}
-          </div>
-        </div>
+        {/* Leaderboard Section — with inline FPTP ↔ PR toggle.
+            key={currentElection.id} forces a full remount when the election
+            changes, resetting the local showPR state back to false. */}
+        <LeaderboardSection
+          key={currentElection.id}
+          topFive={topFive}
+          prParties={prParties}
+          leadingCandidates={leadingCandidates}
+          map={map}
+        />
       </aside>
     );
   }

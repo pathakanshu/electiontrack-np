@@ -43,6 +43,14 @@ const Header: React.FC<HeaderProps> = ({
               {tt('heading_title')}
             </a>
           </h1>
+          <a
+            className="heading-bar__url"
+            href="https://election.pathakanshu.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            election.pathakanshu.com
+          </a>
         </div>
 
         {/* ── Right: stacked metadata ── */}
@@ -99,14 +107,6 @@ const Header: React.FC<HeaderProps> = ({
                 rel="noopener noreferrer"
               >
                 election.gov.np
-              </a>
-              {' · '}
-              <a
-                href="https://nsonepal.gov.np"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                nsonepal.gov.np
               </a>
             </span>
             {isLive && (

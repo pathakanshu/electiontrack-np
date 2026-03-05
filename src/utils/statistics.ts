@@ -292,12 +292,29 @@ export function computeCompetitiveness(
 
       // Invert margin: lower margin → higher score
       const marginScore = Math.max(0, 100 - r.marginPercent * 2);
-      // Vote compression: higher top-3 concentration means tighter race
-      const compressionScore = r.top3Concentration;
+
+      // Top-3 spread: how evenly are votes distributed among the top 3?
+      // If one candidate has everything → spread = 0 (not competitive).
+      // If top 3 share equally → spread = 100 (very competitive).
+      const top3 = r.candidates.slice(0, 3);
+      let spreadScore = 0;
+      if (top3.length >= 2 && r.totalVotes > 0) {
+        const shares = top3.map((c) => c.votes / r.totalVotes);
+        // Perfect equality among N candidates: each has 1/N.
+        // Measure how close we are to that using 1 - max deviation.
+        const maxShare = shares[0]; // already sorted desc
+        // A single candidate with 100% → maxShare=1 → spreadScore=0
+        // Two candidates at 50/50 → maxShare=0.5 → spreadScore=50*2=100 (capped)
+        spreadScore = Math.min(
+          100,
+          (1 - maxShare) * 100 * (top3.length / (top3.length - 1))
+        );
+      }
+
       // Weighted combination
       const index = Math.min(
         100,
-        Math.max(0, marginScore * 0.6 + compressionScore * 0.4)
+        Math.max(0, marginScore * 0.6 + spreadScore * 0.4)
       );
 
       return {

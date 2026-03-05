@@ -14,6 +14,19 @@
       rel="stylesheet"
       href="https://unpkg.com/maplibre-gl@5.15.0/dist/maplibre-gl.css"
     />
+    <script>
+      // Apply saved theme (or OS preference) before first paint to prevent flash.
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var theme =
+          stored === 'dark' || stored === 'light'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

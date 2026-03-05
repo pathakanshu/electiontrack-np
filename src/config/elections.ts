@@ -26,6 +26,9 @@
  */
 export const DEFAULT_ELECTION_ID = '2082';
 
+/** Which voting-system views are available: FPTP (always) and optionally PR. */
+export type VotingMode = 'fptp' | 'pr';
+
 export interface ElectionConfig {
   id: string;
   name: string;
@@ -35,6 +38,11 @@ export interface ElectionConfig {
   isCurrent: boolean;
   /** If true, the UI should show a warning that data is incomplete/unavailable. */
   missingData?: boolean;
+  /**
+   * Whether Proportional Representation (PR / समानुपातिक) data is available
+   * for this election. When true, the UI shows an FPTP ↔ PR toggle.
+   */
+  hasPR?: boolean;
   endpoints: {
     // Geometry endpoints - serve GeoJSON for map rendering
     // These typically come from the live Election Commission API
@@ -57,6 +65,12 @@ export interface ElectionConfig {
       districtId: number,
       constituencyId: number
     ) => string;
+
+    // ── PR (Proportional Representation) endpoints ──
+    // Only present when hasPR is true.
+
+    /** National PR aggregate — total votes per party across all constituencies. */
+    prNational?: string;
   };
 
   /**
@@ -67,6 +81,8 @@ export interface ElectionConfig {
     districtLookup: string;
     symbolImages: string;
     candidates: string;
+    /** Remote URL for the national PR aggregate file. Used by download-cache.ts. */
+    prNational?: string;
   };
 }
 
@@ -80,6 +96,7 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
     nameNp: '२०७९ आम निर्वाचन',
     year: 2079,
     isCurrent: false,
+    hasPR: true,
     endpoints: {
       // Live geometry from Election Commission
       provinces:
@@ -100,6 +117,9 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
       // Fallback: fetch individual constituency results
       constituencyResults: (districtId: number, constituencyId: number) =>
         `https://result.election.gov.np/JSONFiles/Election2079/HOR/FPTP/HOR-${districtId}-${constituencyId}.json`,
+
+      // PR endpoints
+      prNational: '/cache/2079/PRHoRPartyTop5.txt',
     },
     source: {
       districtLookup:
@@ -107,6 +127,8 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
       symbolImages: 'https://result.election.gov.np/Images/symbol-hor-pa',
       candidates:
         'https://result.election.gov.np/JSONFiles/ElectionResultCentral2079.txt',
+      prNational:
+        'https://result.election.gov.np/JSONFiles/Election2079/Common/PRHoRPartyTop5.txt',
     },
   },
 
@@ -117,6 +139,7 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
     year: 2074,
     isCurrent: false,
     missingData: true,
+    hasPR: false,
     endpoints: {
       provinces:
         'https://result.election.gov.np/JSONFiles/JSONMap/geojson/Province.json',
@@ -147,6 +170,7 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
     nameNp: '२०८२ आम निर्वाचन',
     year: 2082,
     isCurrent: true,
+    hasPR: true,
     endpoints: {
       provinces:
         'https://result.election.gov.np/JSONFiles/JSONMap/geojson/Province.json',
@@ -160,6 +184,9 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
       candidates: '/cache/2082/ElectionResultCentral2082.txt',
       constituencyResults: (districtId: number, constituencyId: number) =>
         `https://result.election.gov.np/JSONFiles/Election2082/HOR/FPTP/HOR-${districtId}-${constituencyId}.json`,
+
+      // PR endpoints (2082 endpoints exist but data may still be empty)
+      prNational: '/cache/2082/PRHoRPartyTop5.txt',
     },
     source: {
       districtLookup:
@@ -167,6 +194,8 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
       symbolImages: 'https://result.election.gov.np/Images/symbol-hor-pa',
       candidates:
         'https://result.election.gov.np/JSONFiles/ElectionResultCentral2082.txt',
+      prNational:
+        'https://result.election.gov.np/JSONFiles/Election2082/Common/PRHoRPartyTop5.txt',
     },
   },
 };

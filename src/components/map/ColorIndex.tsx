@@ -3,12 +3,14 @@ import colorMapping from '../../config/colorMapping.json';
 import { Candidate } from '../../types/election';
 import { useLanguage, useTranslation } from '../../i18n';
 import { getNameFromFields } from '../../i18n/getName';
+import { highlightConstituencies, clearHighlights } from '../../map/maprender';
 
 interface ColorIndexProps {
   leadingCandidates: Candidate[];
+  map: any;
 }
 
-const ColorIndex: React.FC<ColorIndexProps> = ({ leadingCandidates }) => {
+const ColorIndex: React.FC<ColorIndexProps> = ({ leadingCandidates, map }) => {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const { locale } = useLanguage();
@@ -36,6 +38,20 @@ const ColorIndex: React.FC<ColorIndexProps> = ({ leadingCandidates }) => {
     ).filter(([name]) => presentParties.has(name));
   }, [leadingCandidates]);
 
+  const enterParty = (party: string) => {
+    if (!map) return;
+    const ids = new Set(
+      leadingCandidates
+        .filter((c) => c.party === party)
+        .map((c) => c.constituency_id)
+    );
+    highlightConstituencies(map, ids, leadingCandidates);
+  };
+
+  const leaveParty = () => {
+    if (map) clearHighlights(map, leadingCandidates);
+  };
+
   return (
     <div className="color-index-container">
       {open && (
@@ -45,7 +61,12 @@ const ColorIndex: React.FC<ColorIndexProps> = ({ leadingCandidates }) => {
           ) : (
             <ul className="color-index-list">
               {partyColors.map(([name, color]) => (
-                <li key={name} className="color-index-item">
+                <li
+                  key={name}
+                  className="color-index-item"
+                  onMouseEnter={() => enterParty(name)}
+                  onMouseLeave={leaveParty}
+                >
                   <span
                     className="color-index-swatch"
                     style={{ backgroundColor: color }}

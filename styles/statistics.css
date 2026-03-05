@@ -228,6 +228,7 @@
 }
 
 .stat-card__subtitle {
+  font-family: var(--font-sans, Inter, sans-serif);
   font-size: 0.78rem;
   color: var(--color-text-muted, #888);
   line-height: 1.35;
@@ -237,6 +238,7 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  font-family: var(--font-sans, Inter, sans-serif);
   font-size: 0.78rem;
   font-weight: 600;
   margin-top: 0.1rem;

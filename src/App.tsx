@@ -13,7 +13,9 @@ import {
   DEFAULT_ELECTION_ID,
   getCurrentElection,
 } from './config/elections';
+
 import { invalidateCache } from './data/dataBundler';
+import { updateMapTheme } from './map/maprender';
 import StatisticsPage from './components/statistics/StatisticsPage';
 
 import '../styles/main.css';
@@ -43,6 +45,20 @@ const App = () => {
   useEffect(() => {
     document.documentElement.lang = locale === 'np' ? 'ne' : 'en';
   }, [locale]);
+
+  // Update map layer colors whenever the theme attribute changes.
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      if (mapInstance && mapInstance.isStyleLoaded()) {
+        updateMapTheme(mapInstance);
+      }
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    return () => observer.disconnect();
+  }, [mapInstance]);
 
   // ---- Election selection state ----
   const [selectedElectionId, setSelectedElectionId] =
@@ -129,7 +145,7 @@ const App = () => {
 
 /**
  * Full-width utility navbar — spans both columns at the very top of the grid.
- * Contains GitHub link and language toggle.
+ * Contains stats/map link, dark mode toggle, and language toggle.
  */
 const Navbar: React.FC<{ selectedElectionId: string }> = ({
   selectedElectionId,
@@ -138,6 +154,36 @@ const Navbar: React.FC<{ selectedElectionId: string }> = ({
   const { t } = useTranslation();
   const { path } = useHashRouter();
   const isStatsPage = path === '/statistics';
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark' || stored === 'light') {
+      return stored === 'dark';
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  // Sync the data-theme attribute and localStorage whenever `dark` changes.
+  useEffect(() => {
+    const theme = dark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [dark]);
+
+  // Listen for OS-level color scheme changes (only if user hasn't set a manual pref).
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      if (!localStorage.getItem('theme')) {
+        setDark(e.matches);
+      }
+    };
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const toggleDark = useCallback(() => {
+    setDark((prev) => !prev);
+  }, []);
 
   const allElections = getAllElections();
   const selected = allElections.find((e) => e.id === selectedElectionId);
@@ -149,7 +195,7 @@ const Navbar: React.FC<{ selectedElectionId: string }> = ({
   return (
     <nav className="top-navbar">
       <ul className="top-navbar__list">
-        <li className="top-navbar__item">
+        <li className="top-navbar__item top-navbar__item--stats">
           {isStatsPage ? (
             <a href="#/">{t('nav_map' as any)}</a>
           ) : (
@@ -159,14 +205,32 @@ const Navbar: React.FC<{ selectedElectionId: string }> = ({
         <li className="top-navbar__election">
           <span className="top-navbar__election-label">{electionLabel}</span>
         </li>
-        <li className="top-navbar__item" style={{ marginLeft: 'auto' }}>
-          <a
-            href="https://github.com/pathakanshu/electiontrack-np"
-            target="_blank"
-            rel="noopener noreferrer"
+        <li style={{ marginLeft: 'auto' }}>
+          <button
+            className="dark-mode-btn"
+            onClick={toggleDark}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={
+              locale === 'np'
+                ? dark
+                  ? 'लाइट मोड'
+                  : 'डार्क मोड'
+                : dark
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode'
+            }
           >
-            GitHub
-          </a>
+            {dark ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+          </button>
         </li>
         <li className="top-navbar__lang">
           <button
@@ -210,6 +274,7 @@ const AppContent: React.FC<{
     candidates,
     leadingCandidates,
     stats,
+    prParties,
     loading: dataLoading,
     error: dataError,
   } = useElectionData(refreshKey);
@@ -236,6 +301,7 @@ const AppContent: React.FC<{
           stats={stats}
           candidates={candidates}
           leadingCandidates={leadingCandidates}
+          prParties={prParties}
           map={null}
         />
       </>
@@ -274,6 +340,7 @@ const AppContent: React.FC<{
           stats={stats}
           candidates={candidates}
           leadingCandidates={leadingCandidates}
+          prParties={prParties}
           map={null}
         />
       </>
@@ -292,6 +359,7 @@ const AppContent: React.FC<{
           stats={stats}
           candidates={candidates}
           leadingCandidates={leadingCandidates}
+          prParties={prParties}
           map={null}
         />
       </>
@@ -306,6 +374,7 @@ const AppContent: React.FC<{
         stats={stats}
         candidates={candidates}
         leadingCandidates={leadingCandidates}
+        prParties={prParties}
         map={mapInstance}
       />
 

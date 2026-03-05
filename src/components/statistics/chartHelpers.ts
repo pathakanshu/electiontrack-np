@@ -15,8 +15,31 @@ import type { Locale } from '../../i18n';
 
 // ─── Color Palette ──────────────────────────────────────────────────────────
 
-/** Light theme colors — NYT-inspired newspaper palette. */
-export const THEME = {
+/**
+ * Theme colors — reactive to dark mode.
+ *
+ * Instead of hardcoded hex values, each property is resolved at access time
+ * via a Proxy that reads CSS custom properties from <html>. This means any
+ * component that references `THEME.text` will get the correct color for the
+ * current light/dark theme without needing a re-import or context provider.
+ *
+ * Colors that have a matching CSS variable (e.g. --color-text) are read from
+ * `getComputedStyle`. Chart-specific colors that don't live in CSS (gridLine,
+ * axisLine, tooltipBg, tooltipBorder) are switched based on `data-theme`.
+ */
+
+function isDark(): boolean {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+function cssVar(name: string, fallback: string): string {
+  const val = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return val || fallback;
+}
+
+const LIGHT = {
   bg: '#ffffff',
   cardBg: '#f9f9f7',
   surface: '#f9f9f7',
@@ -34,7 +57,57 @@ export const THEME = {
   axisLine: '#c8c8c4',
   tooltipBg: 'rgba(255, 255, 255, 0.97)',
   tooltipBorder: '#d0d0cd',
-} as const;
+};
+
+const DARK = {
+  bg: '#141414',
+  cardBg: '#1c1c1c',
+  surface: '#1c1c1c',
+  surfaceHover: '#242424',
+  border: '#2e2e2e',
+  text: '#e8e6e1',
+  textSecondary: '#b0ada6',
+  textMuted: '#787572',
+  accent: '#e05555',
+  accentDim: 'rgba(224, 85, 85, 0.1)',
+  positive: '#3dba6a',
+  negative: '#e05555',
+  neutral: '#6eaaff',
+  gridLine: '#2a2a2a',
+  axisLine: '#444444',
+  tooltipBg: 'rgba(28, 28, 28, 0.97)',
+  tooltipBorder: '#444444',
+};
+
+type ThemeColors = typeof LIGHT;
+
+/** CSS variable → THEME key mapping for values that live in the stylesheet. */
+const CSS_VAR_MAP: Partial<Record<keyof ThemeColors, string>> = {
+  bg: '--color-bg',
+  border: '--color-border',
+  text: '--color-text',
+  textSecondary: '--color-text-secondary',
+  textMuted: '--color-text-muted',
+  accent: '--color-accent',
+  positive: '--color-positive',
+  negative: '--color-negative',
+};
+
+export const THEME: ThemeColors = new Proxy(LIGHT, {
+  get(_target, prop: string) {
+    const key = prop as keyof ThemeColors;
+    const palette = isDark() ? DARK : LIGHT;
+
+    // If there's a CSS variable for this key, prefer it (supports any
+    // future customisation or intermediate themes).
+    const varName = CSS_VAR_MAP[key];
+    if (varName) {
+      return cssVar(varName, palette[key]);
+    }
+
+    return palette[key];
+  },
+});
 
 /**
  * A curated categorical palette for up to 12 parties.

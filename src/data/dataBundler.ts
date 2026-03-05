@@ -24,6 +24,7 @@ import {
   fetchDistrictIdentifiers,
   fetchConstituencyIdentifiers,
   fetchSymbols,
+  fetchPRNational,
 } from './api';
 
 import { normalizedLookup, normalizeMapKeys } from '../utils/normalize';
@@ -39,6 +40,8 @@ import type {
   ConstituencyFeature,
   Candidate,
   CandidateIdentifier,
+  PRPartyAggregateRaw,
+  PRPartyAggregate,
 } from '../types/election';
 
 import en, { type UiStringKey } from '../i18n/en';
@@ -565,6 +568,48 @@ export async function bundleLeadingCandidates(
 
   console.log(
     `[bundleLeadingCandidates] Found ${bundled.length} leading candidates (constituency winners).`
+  );
+  return bundled;
+}
+
+/**
+ * Fetch and normalize national-level PR (Proportional Representation)
+ * aggregate data — one entry per party with total votes.
+ *
+ * Returns an empty array when the active election has no PR data or the
+ * endpoint returns an error / empty payload. This allows the rest of the
+ * app to treat PR as purely additive — nothing breaks when it's absent.
+ */
+export async function bundlePRNational(): Promise<PRPartyAggregate[]> {
+  const raw: PRPartyAggregateRaw[] =
+    (await fetchPRNational()) as PRPartyAggregateRaw[];
+
+  if (!raw || raw.length === 0) {
+    console.log('[bundlePRNational] No PR data available for this election.');
+    return [];
+  }
+
+  const partyTranslations = await getPartyNameTranslations();
+
+  const bundled: PRPartyAggregate[] = raw
+    .filter((entry) => entry.TotalVoteReceived > 0)
+    .map((entry) => {
+      const partyNp = entry.PoliticalPartyName ?? '';
+      const partyEn = normalizedLookup(partyTranslations, partyNp) ?? null;
+
+      return {
+        party: partyNp,
+        party_en: partyEn,
+        party_id: entry.PartyID ?? 0,
+        symbol_id: entry.SymbolID ?? 0,
+        symbol_name: entry.SymbolName ?? null,
+        votes: entry.TotalVoteReceived,
+      };
+    })
+    .sort((a, b) => b.votes - a.votes);
+
+  console.log(
+    `[bundlePRNational] Bundled ${bundled.length} parties with PR votes.`
   );
   return bundled;
 }

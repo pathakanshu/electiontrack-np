@@ -212,3 +212,39 @@ export type colorMapping = {
   parties: Record<string, string>;
   others: string;
 };
+
+//
+// Proportional Representation (PR / समानुपातिक) Types
+//
+
+/**
+ * Raw JSON shape from the national PR aggregate endpoint.
+ * e.g. `JSONFiles/Election2079/Common/PRHoRPartyTop5.txt`
+ *
+ * Contains one entry per party with total national votes.
+ * Many candidate-level fields are null because PR has no candidates.
+ */
+export type PRPartyAggregateRaw = {
+  CandidateName: string | null;
+  Gender: string | null;
+  Age: number;
+  PartyID: number;
+  SymbolID: number;
+  SymbolName: string | null;
+  PoliticalPartyName: string;
+  TotalVoteReceived: number;
+  [key: string]: unknown;
+};
+
+/**
+ * Normalized national-level PR party aggregate used by the app.
+ * One entry per party with their total PR vote across all constituencies.
+ */
+export type PRPartyAggregate = {
+  party: string;
+  party_en: string | null;
+  party_id: number;
+  symbol_id: number;
+  symbol_name: string | null;
+  votes: number;
+};

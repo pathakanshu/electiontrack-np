@@ -20,7 +20,7 @@ const np: UiStrings = {
   nav_tos: 'सेवा शर्त',
   language_english: 'English',
   language_nepali: 'नेपाली',
-  heading_title: 'निर्वाचन ट्र्याकर नेपाल',
+  heading_title: 'नेपाल निर्वाचन ट्र्याकर',
   heading_now_tracking: 'अहिले ट्र्याक गर्दै:',
   heading_incomplete_data: '⚠ अपूर्ण तथ्याङ्क',
   heading_incomplete_data_tooltip:
@@ -75,6 +75,7 @@ const np: UiStrings = {
 
   // -- Statistics Page --
   stats_title: 'निर्वाचन तथ्याङ्क',
+  stats_subtitle_prefix: 'तथ्याङ्क भेटियो:',
   stats_subtitle_constituencies: 'निर्वाचन क्षेत्र',
   stats_subtitle_candidates: 'उम्मेदवार',
   stats_subtitle_votes: 'खसेको मत',
@@ -96,20 +97,21 @@ const np: UiStrings = {
   stats_nav_simulation: 'सिमुलेशन',
 
   // Stats cards
-  stats_card_seats: 'सिट',
-  stats_card_candidates_sub: '{count} उम्मेदवार',
-  stats_card_votes_cast: 'खसेको मत',
-  stats_card_avg_winner_share: 'औसत विजेता हिस्सा',
-  stats_card_margin: 'अन्तर: {value}',
-  stats_card_competitiveness: 'प्रतिस्पर्धा',
-  stats_card_competitiveness_sub: '० = एकतर्फी, १०० = अति नजिक',
-  stats_card_wasted_votes: 'बर्बाद मत',
-  stats_card_wasted_votes_sub: 'हारेका उम्मेदवारलाई खसेको मत',
-  stats_card_candidates_per_seat: 'उम्मेदवार / सिट',
-  stats_card_majority_wins: 'बहुमत जित',
-  stats_card_majority_wins_sub: '{count} ले ५०% भन्दा कम पाएर जिते',
-  stats_card_fragmented: 'विखण्डित',
-  stats_card_fragmented_sub: 'विजेताले ३५% भन्दा कम मत पाएको',
+  stats_card_seats: 'कुल प्रतिस्पर्धित सिट',
+  stats_card_candidates_sub: 'सबै निर्वाचन क्षेत्रमा {count} उम्मेदवार',
+  stats_card_votes_cast: 'कुल खसेको मत',
+  stats_card_avg_winner_share: 'औसत विजेता मत हिस्सा',
+  stats_card_margin: 'औसत जित अन्तर: {value}',
+  stats_card_competitiveness: 'प्रतिस्पर्धा सूचकाङ्क',
+  stats_card_competitiveness_sub:
+    'औसत स्कोर — ० भनेको एकतर्फी, १०० भनेको अति नजिकको प्रतिस्पर्धा',
+  stats_card_wasted_votes: 'बर्बाद मत दर',
+  stats_card_wasted_votes_sub: 'नजित्ने उम्मेदवारलाई खसेको मतको हिस्सा',
+  stats_card_candidates_per_seat: 'औसत उम्मेदवार प्रति सिट',
+  stats_card_majority_wins: 'बहुमत जित (>५०%)',
+  stats_card_majority_wins_sub: '{count} सिटमा बहुमत बिना नै जित',
+  stats_card_fragmented: 'विखण्डित सिट',
+  stats_card_fragmented_sub: 'विजेताले ३५% भन्दा कम मत पाएका सिटहरू',
 
   // Core Results section
   stats_core_title: 'मूल नतिजा',
@@ -281,6 +283,18 @@ const np: UiStrings = {
   // Navbar
   nav_map: '← नक्सा',
   nav_statistics: 'तथ्याङ्क →',
+
+  // Voting mode toggle (FPTP ↔ PR)
+  mode_fptp: 'प्रत्यक्ष',
+  mode_fptp_long: 'प्रत्यक्ष निर्वाचन (FPTP)',
+  mode_pr: 'समानुपातिक',
+  mode_pr_long: 'समानुपातिक प्रतिनिधित्व (PR)',
+  mode_toggle_aria: 'प्रत्यक्ष र समानुपातिक नतिजा बीच स्विच गर्नुहोस्',
+
+  // PR Leaderboard
+  leaderboard_pr_title: 'समानुपातिक मत (शीर्ष ५)',
+  leaderboard_pr_votes: 'मत',
+  leaderboard_pr_no_data: 'यस निर्वाचनको लागि समानुपातिक तथ्याङ्क उपलब्ध छैन।',
 
   // -- Provinces --
   province_1: 'कोशी प्रदेश',

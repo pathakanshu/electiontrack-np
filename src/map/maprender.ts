@@ -15,23 +15,41 @@ import type {
   colorMapping,
 } from '../types/election';
 
-const background_color = '#ffffff';
+/** Light / dark color palettes for the map layers. */
+const MAP_COLORS = {
+  light: {
+    background: '#ffffff',
+    border: '#ffffff',
+    provinceFill: '#a0a0a0',
+    districtFill: '#a0a0a0',
+    constituencyFill: '#9a9a9a',
+  },
+  dark: {
+    background: '#141414',
+    border: '#222222',
+    provinceFill: '#3a3a3a',
+    districtFill: '#3a3a3a',
+    constituencyFill: '#333333',
+  },
+} as const;
 
-const province_border_color = '#ffffff';
-const province_fill_color = '#a0a0a0';
+function isDark(): boolean {
+  return document.documentElement.getAttribute('data-theme') === 'dark';
+}
+
+function mapColors() {
+  return isDark() ? MAP_COLORS.dark : MAP_COLORS.light;
+}
+
 const province_fill_opacity = 0;
 const province_border_width = 2;
 const province_border_opacity = 1;
 
 // district is not used in HOR elections
-const district_border_color = '#ffffff';
-const district_fill_color = '#a0a0a0';
 const district_fill_opacity = 1;
 const district_border_width = 1;
 const district_border_opacity = 1;
 
-const constituency_border_color = '#ffffff';
-const constituency_fill_color = '#9a9a9a';
 const constituency_fill_opacity = 1;
 const constituency_border_width = 1;
 const constituency_border_opacity = 1;
@@ -111,6 +129,7 @@ class ResetViewControl {
 }
 
 export function createMap(containerID: string): Map {
+  const colors = mapColors();
   const map = new Map({
     container: containerID,
     center: DEFAULT_CENTER,
@@ -123,7 +142,7 @@ export function createMap(containerID: string): Map {
           id: 'background',
           type: 'background',
           paint: {
-            'background-color': background_color,
+            'background-color': colors.background,
             'background-opacity': 0,
           },
         },
@@ -150,6 +169,50 @@ export function createMap(containerID: string): Map {
 }
 
 /**
+ * Update all map layer paint properties to match the current light/dark theme.
+ * Call this whenever the user toggles dark mode.
+ */
+export function updateMapTheme(map: Map): void {
+  const colors = mapColors();
+
+  // Background
+  if (map.getLayer('background')) {
+    map.setPaintProperty('background', 'background-color', colors.background);
+  }
+
+  // Provinces
+  if (map.getLayer('provinces-fill')) {
+    map.setPaintProperty('provinces-fill', 'fill-color', colors.provinceFill);
+  }
+  if (map.getLayer('provinces-border')) {
+    map.setPaintProperty('provinces-border', 'line-color', colors.border);
+  }
+
+  // Districts
+  if (map.getLayer('districts-fill')) {
+    map.setPaintProperty('districts-fill', 'fill-color', colors.districtFill);
+  }
+  if (map.getLayer('districts-border')) {
+    map.setPaintProperty('districts-border', 'line-color', colors.border);
+  }
+
+  // Constituencies — update the fallback color in the coalesce expression.
+  // The expression is: ['coalesce', ['feature-state', 'color'], ['get', 'color'], fallback]
+  // Constituencies with a party color keep it; only the default gray changes.
+  if (map.getLayer('constituencies-fill')) {
+    map.setPaintProperty('constituencies-fill', 'fill-color', [
+      'coalesce',
+      ['feature-state', 'color'],
+      ['get', 'color'],
+      colors.constituencyFill,
+    ]);
+  }
+  if (map.getLayer('constituencies-border')) {
+    map.setPaintProperty('constituencies-border', 'line-color', colors.border);
+  }
+}
+
+/**
  * Add provinces as a GeoJSON source + fill and border layers.
  */
 export function addProvincesLayer(map: Map, provinces: Province[]) {
@@ -163,12 +226,13 @@ export function addProvincesLayer(map: Map, provinces: Province[]) {
     data: geojson,
   });
 
+  const colors = mapColors();
   map.addLayer({
     id: 'provinces-fill',
     type: 'fill',
     source: 'provinces',
     paint: {
-      'fill-color': province_fill_color,
+      'fill-color': colors.provinceFill,
       'fill-opacity': province_fill_opacity,
     },
   });
@@ -178,7 +242,7 @@ export function addProvincesLayer(map: Map, provinces: Province[]) {
     type: 'line',
     source: 'provinces',
     paint: {
-      'line-color': province_border_color,
+      'line-color': colors.border,
       'line-width': province_border_width,
       'line-opacity': province_border_opacity,
     },
@@ -199,12 +263,13 @@ export function addDistrictsLayer(map: Map, districts: District[]) {
     data: geojson,
   });
 
+  const colors = mapColors();
   map.addLayer({
     id: 'districts-fill',
     type: 'fill',
     source: 'districts',
     paint: {
-      'fill-color': district_fill_color,
+      'fill-color': colors.districtFill,
       'fill-opacity': district_fill_opacity,
     },
   });
@@ -214,7 +279,7 @@ export function addDistrictsLayer(map: Map, districts: District[]) {
     type: 'line',
     source: 'districts',
     paint: {
-      'line-color': district_border_color,
+      'line-color': colors.border,
       'line-width': district_border_width,
       'line-opacity': district_border_opacity,
     },
@@ -253,6 +318,7 @@ export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
     data: geojson,
   });
 
+  const colors = mapColors();
   map.addLayer({
     id: 'constituencies-fill',
     type: 'fill',
@@ -262,7 +328,7 @@ export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
         'coalesce',
         ['feature-state', 'color'],
         ['get', 'color'],
-        constituency_fill_color,
+        colors.constituencyFill,
       ],
       // Dim non-highlighted constituencies to 0.15 opacity when a highlight
       // is active; otherwise render at full opacity.
@@ -280,7 +346,7 @@ export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
     type: 'line',
     source: 'constituencies',
     paint: {
-      'line-color': constituency_border_color,
+      'line-color': colors.border,
       'line-width': constituency_border_width,
       'line-opacity': constituency_border_opacity,
     },

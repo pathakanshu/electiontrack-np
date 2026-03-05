@@ -145,6 +145,46 @@ export async function fetchCandidates() {
  * @param districtId - The district ID
  * @param constituencyId - The constituency ID
  */
+/**
+ * Fetch the national PR (Proportional Representation) aggregate data
+ * from the current election's configuration.
+ *
+ * Returns an array of party-level vote totals across all constituencies.
+ * Returns an empty array if the current election has no PR endpoint configured.
+ */
+export async function fetchPRNational(): Promise<unknown[]> {
+  const election = getCurrentElection();
+  const url = election.endpoints.prNational;
+
+  if (!url) {
+    return [];
+  }
+
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    // PR data may not exist yet (e.g. 2082 before results are published).
+    // Return empty rather than throwing so the app degrades gracefully.
+    console.warn(
+      `[fetchPRNational] HTTP ${res.status} for ${url} — returning empty array`
+    );
+    return [];
+  }
+
+  const text = await res.text();
+
+  try {
+    const data = JSON.parse(text);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    console.warn(
+      '[fetchPRNational] Response is not valid JSON; first 500 chars:',
+      text.slice(0, 500)
+    );
+    return [];
+  }
+}
+
 export async function fetchConstituencyCandidates(
   districtId: number,
   constituencyId: number
