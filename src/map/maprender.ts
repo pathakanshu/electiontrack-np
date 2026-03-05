@@ -1,4 +1,12 @@
 import { Map } from 'maplibre-gl';
+
+/**
+ * Module-level set of ALL constituency feature IDs added to the map,
+ * including conservation areas. Used by highlight/clear functions so
+ * conservation areas get dimmed too (they have no candidates, so the
+ * candidate-based loop alone misses them).
+ */
+let _allConstituencyIds: Set<number> = new Set();
 import type {
   Province,
   District,
@@ -35,6 +43,16 @@ const DEFAULT_CENTER: [number, number] = [84.116, 28.41];
 const DEFAULT_ZOOM = 6.25;
 
 /**
+ * Nepal's geographic bounding box [west, south, east, north].
+ * Used by fitBounds to automatically size the map to the container.
+ * Slightly padded so the edges don't clip.
+ */
+const NEPAL_BOUNDS: [[number, number], [number, number]] = [
+  [79.9, 26.3], // southwest
+  [88.3, 30.5], // northeast
+];
+
+/**
  * Custom MapLibre control that flies the map back to the default
  * center and zoom when clicked.
  */
@@ -58,7 +76,7 @@ class ResetViewControl {
     this._btn = btn;
 
     btn.addEventListener('click', () => {
-      this._map?.flyTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM });
+      this._map?.fitBounds(NEPAL_BOUNDS, { padding: 10, duration: 800 });
     });
 
     // Show the button whenever the view differs from the default;
@@ -68,9 +86,9 @@ class ResetViewControl {
       const zoom = this._map.getZoom();
       const center = this._map.getCenter();
       const moved =
-        Math.abs(zoom - DEFAULT_ZOOM) > 0.05 ||
-        Math.abs(center.lng - DEFAULT_CENTER[0]) > 0.05 ||
-        Math.abs(center.lat - DEFAULT_CENTER[1]) > 0.05;
+        Math.abs(zoom - DEFAULT_ZOOM) > 0.5 ||
+        Math.abs(center.lng - DEFAULT_CENTER[0]) > 0.3 ||
+        Math.abs(center.lat - DEFAULT_CENTER[1]) > 0.3;
       this._btn.style.display = moved ? '' : 'none';
     };
 
@@ -116,6 +134,17 @@ export function createMap(containerID: string): Map {
   });
 
   map.addControl(new ResetViewControl(), 'top-right');
+
+  // Once the map is ready, fit to Nepal's bounds so it always fills
+  // the container perfectly regardless of screen/panel size.
+  map.once('load', () => {
+    map.fitBounds(NEPAL_BOUNDS, { padding: 10, duration: 0 });
+  });
+
+  // Re-fit on resize so it stays correct if the window changes.
+  map.on('resize', () => {
+    map.fitBounds(NEPAL_BOUNDS, { padding: 10, duration: 0 });
+  });
 
   return map;
 }
@@ -199,6 +228,11 @@ export function addDistrictsLayer(map: Map, districts: District[]) {
  * constituencies during hover interactions.
  */
 export function addConstituencyLayer(map: Map, constituencies: Constituency[]) {
+  // Track every feature ID so highlight/clear can dim conservation areas too
+  _allConstituencyIds = new Set(
+    constituencies.map((f) => f.properties.constituency_id)
+  );
+
   const geojson = {
     type: 'FeatureCollection' as const,
     features: constituencies.map((f) => ({
@@ -284,12 +318,28 @@ export function highlightConstituencies(
 ) {
   if (!map.getSource('constituencies')) return;
 
+  // Collect IDs touched by the candidate loop so we know which ones
+  // are left over (conservation areas, etc.)
+  const touched = new Set<number>();
+
   for (const candidate of allCandidates) {
+    touched.add(candidate.constituency_id);
     const dimmed = !highlightIds.has(candidate.constituency_id);
     map.setFeatureState(
       { source: 'constituencies', id: candidate.constituency_id },
       { dimmed }
     );
+  }
+
+  // Dim any constituency features NOT covered by candidates
+  // (conservation areas have no candidates but are in the source)
+  for (const id of _allConstituencyIds) {
+    if (!touched.has(id)) {
+      map.setFeatureState(
+        { source: 'constituencies', id },
+        { dimmed: !highlightIds.has(id) }
+      );
+    }
   }
 }
 
@@ -299,11 +349,17 @@ export function highlightConstituencies(
 export function clearHighlights(map: Map, allCandidates: Candidate[]) {
   if (!map.getSource('constituencies')) return;
 
+  // Clear candidate constituencies
   for (const candidate of allCandidates) {
     map.setFeatureState(
       { source: 'constituencies', id: candidate.constituency_id },
       { dimmed: false }
     );
+  }
+
+  // Also clear conservation areas and any other non-candidate features
+  for (const id of _allConstituencyIds) {
+    map.setFeatureState({ source: 'constituencies', id }, { dimmed: false });
   }
 }
 
@@ -325,6 +381,13 @@ export async function colorConstituenciesByVotes(
   map: Map,
   leadingCandidates: Candidate[]
 ) {
+  // Clear every constituency's color first so that constituencies whose
+  // leader dropped to 0 votes (or disappeared from the data) revert to
+  // the default grey instead of keeping a stale party color.
+  for (const id of _allConstituencyIds) {
+    clearConstituencyColor(map, id);
+  }
+
   const colorMapping: colorMapping =
     await import('../config/colorMapping.json');
 

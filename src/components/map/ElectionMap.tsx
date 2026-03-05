@@ -8,6 +8,8 @@ import {
   colorConstituenciesByVotes,
 } from '../../map/maprender';
 import { Province, Constituency, Candidate } from '../../types/election';
+import { useLanguage, useTranslation } from '../../i18n';
+import { getName, getNameFromFields } from '../../i18n/getName';
 
 interface ElectionMapProps {
   provinces: Province[];
@@ -31,6 +33,21 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const { locale } = useLanguage();
+  const { t } = useTranslation();
+
+  // Keep a stable ref to locale so the popup callback reads the latest value
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
+
+  // Keep a stable ref to t() so the popup callback always uses the latest
+  // translation function (which changes when locale changes).
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
 
   // Keep a stable ref to leadingCandidates so the popup effect can read
   // the latest value without needing to re-register map event listeners.
@@ -86,18 +103,48 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
       if (e.features && e.features.length > 0) {
         map.getCanvas().style.cursor = 'pointer';
         const feature = e.features[0];
-        const { district_name, sub_id, constituency_id } = feature.properties;
+        const { district_name, sub_id, constituency_id, conservation_area } =
+          feature.properties;
 
         let html: string;
-        if (constituency_id === 5999) {
-          html = `<div style="padding:4px 8px;color:#000;font-weight:600;font-family:sans-serif;">संरक्षण क्षेत्र</div>`;
+        if (conservation_area) {
+          // Conservation area — locale-aware label
+          const areaLabel =
+            localeRef.current === 'np'
+              ? 'संरक्षण क्षेत्र'
+              : 'Conservation Area';
+          html = `<div style="padding:4px 8px;color:#000;font-weight:600;font-family:sans-serif;">${areaLabel}</div>`;
         } else {
-          const header = `${district_name || 'District ' + feature.properties.district_id} - ${sub_id}`;
+          // Resolve district name: use i18n key `district_{id}` for English,
+          // fall back to the Nepali name baked into the GeoJSON.
+          const districtId = feature.properties.district_id;
+          let districtDisplayName: string;
+          if (localeRef.current === 'en') {
+            const translated = tRef.current(`district_${districtId}` as any);
+            districtDisplayName =
+              translated && translated !== `district_${districtId}`
+                ? translated
+                : district_name ||
+                  tRef.current('district_fallback', { id: districtId });
+          } else {
+            districtDisplayName =
+              district_name ||
+              tRef.current('district_fallback', { id: districtId });
+          }
+          const header = `${districtDisplayName} - ${sub_id}`;
           const leader = leadingByConstituencyRef.current.get(
             Number(constituency_id)
           );
+          const leaderName = leader ? getName(leader, localeRef.current) : '';
+          const leaderParty = leader
+            ? getNameFromFields(
+                leader.party_en,
+                leader.party,
+                localeRef.current
+              )
+            : '';
           const leaderLine = leader
-            ? `<div style="font-size:0.78rem;color:#333;margin-top:2px;">${leader.name_np} · ${leader.party}</div>`
+            ? `<div style="font-size:0.78rem;color:#333;margin-top:2px;">${leaderName} · ${leaderParty}</div>`
             : '';
           html = `<div style="padding:4px 8px;font-family:sans-serif;">
             <div style="font-weight:600;color:#000;">${header}</div>
@@ -161,7 +208,7 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
   // 3. Color constituencies when leading candidate data is available
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || leadingCandidates.length === 0) return;
+    if (!map) return;
 
     const colorMap = async () => {
       // Ensure the source exists before attempting to color it via feature-state
