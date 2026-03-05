@@ -8,8 +8,12 @@
  * - Symbols metadata (symbols.json)
  * - Constituency identifiers (constituencies.json)
  *
+ * The ECN now serves data through a secure handler requiring a CSRF token.
+ * This script tries the secure handler first (via ecn-session.ts), then
+ * falls back to the old direct URLs if that fails.
+ *
  * Run with:
- *   npx ts-node scripts/download-cache.ts
+ *   npx tsx scripts/download-cache.ts
  */
 
 import fs from 'fs';
@@ -17,6 +21,11 @@ import fsPromises from 'fs/promises';
 import path from 'path';
 
 import { getCurrentElection } from '../src/config/elections';
+import {
+  bootstrapEcnSession,
+  ecnFetch as ecnSessionFetch,
+  isEcnReachable,
+} from './ecn-session';
 
 function now(): string {
   return new Date().toISOString();
@@ -75,22 +84,58 @@ interface CandidateRecord {
 /**
  * Download district lookup from Election Commission API and cache it.
  */
+/**
+ * Whether the ECN secure handler is available for this run.
+ * Set once at the start of downloadCache() and reused throughout.
+ */
+let ecnAvailable = false;
+
+/**
+ * Try fetching text via the ECN secure handler, falling back to a direct URL.
+ *
+ * @param ecnFilePath  Path for the secure handler, e.g. "JSONFiles/Election2082/Local/Lookup/districts.json"
+ * @param directUrl    Direct URL fallback (old-style), e.g. "https://result.election.gov.np/JSONFiles/..."
+ * @returns The response text.
+ */
+async function fetchWithFallback(
+  ecnFilePath: string | null,
+  directUrl: string
+): Promise<string> {
+  // Try ECN secure handler first
+  if (ecnAvailable && ecnFilePath) {
+    try {
+      const text = await ecnSessionFetch(ecnFilePath);
+      return text;
+    } catch (err) {
+      log(
+        `   ⚠️  ECN handler failed for "${ecnFilePath}": ${(err as Error).message}`
+      );
+      log(`   Falling back to direct URL…`);
+    }
+  }
+
+  // Fallback: direct URL
+  const response = await fetch(directUrl);
+  if (!response.ok) {
+    throw new Error(
+      `HTTP ${response.status} ${response.statusText} for ${directUrl}`
+    );
+  }
+  return response.text();
+}
+
 async function downloadDistrictLookup(
   url: string,
+  ecnFilePath: string,
   outputPath: string
 ): Promise<void> {
   try {
     log('\n⬇️  Downloading district lookup...');
-    log(`   URL: ${url}`);
+    log(`   ECN path: ${ecnFilePath}`);
+    log(`   Fallback URL: ${url}`);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(
-        `HTTP ${response.status} ${response.statusText} when fetching district lookup`
-      );
-    }
-
-    const data = await response.json();
+    const text = await fetchWithFallback(ecnFilePath, url);
+    const data = JSON.parse(text);
 
     // Ensure it's an array
     if (!Array.isArray(data)) {
@@ -116,20 +161,15 @@ async function downloadDistrictLookup(
  */
 async function downloadCandidates(
   url: string,
+  ecnFilePath: string,
   outputPath: string
 ): Promise<void> {
   try {
     log('\n⬇️  Downloading candidates data...');
-    log(`   URL: ${url}`);
+    log(`   ECN path: ${ecnFilePath}`);
+    log(`   Fallback URL: ${url}`);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(
-        `HTTP ${response.status} ${response.statusText} when fetching candidates data`
-      );
-    }
-
-    const text = await response.text();
+    const text = await fetchWithFallback(ecnFilePath, url);
 
     // Verify valid JSON before saving
     try {
@@ -166,7 +206,8 @@ async function extractSymbols(candidatesPath: string): Promise<Symbol[]> {
     const symbolMap = new Map<number, string>();
 
     for (const candidate of candidates) {
-      const symbolId = candidate.SymbolID;
+      // 2079 uses SymbolID, 2082 uses SYMBOLCODE
+      const symbolId = candidate.SymbolID ?? candidate.SYMBOLCODE;
       const symbolName = candidate.SymbolName;
 
       if (
@@ -207,6 +248,7 @@ async function downloadSymbolImages(
     await fsPromises.mkdir(outputDir, { recursive: true });
 
     let downloaded = 0;
+    let skipped = 0;
     let failed = 0;
 
     for (const symbol of symbols) {
@@ -216,14 +258,15 @@ async function downloadSymbolImages(
       try {
         // Check if already cached
         if (await fileExists(imagePath)) {
-          downloaded++;
+          skipped++;
           continue;
         }
 
+        log(`   ⬇️  ${imageUrl}`);
         const response = await fetch(imageUrl);
         if (!response.ok) {
           errorLog(
-            `   ⚠️  Failed to download symbol ${symbol.symbolId}: HTTP ${response.status}`
+            `   ⚠️  Failed ${symbol.symbolId} (${symbol.symbolName}): HTTP ${response.status} — ${imageUrl}`
           );
           failed++;
           continue;
@@ -232,22 +275,20 @@ async function downloadSymbolImages(
         const buffer = await response.arrayBuffer();
         await fsPromises.writeFile(imagePath, Buffer.from(buffer));
         downloaded++;
-
-        if (downloaded % 10 === 0) {
-          log(`   ⏳ Downloaded ${downloaded}/${symbols.length} symbols...`);
-        }
       } catch (err) {
         errorLog(
-          `   ⚠️  Error downloading symbol ${symbol.symbolId}: ${err instanceof Error ? err.message : String(err)}`
+          `   ⚠️  Error ${symbol.symbolId} (${symbol.symbolName}): ${err instanceof Error ? err.message : String(err)} — ${imageUrl}`
         );
         failed++;
       }
     }
 
-    log(`✅ Downloaded ${downloaded} symbol images`);
+    log(
+      `✅ Symbols: ${downloaded} new, ${skipped} cached, ${failed} failed (${symbols.length} total)`
+    );
     if (failed > 0) {
       log(
-        `⚠️  Failed to download ${failed} images (they may not be available)`
+        `⚠️  ${failed} images failed — they may not be available on the server yet`
       );
     }
   } catch (err) {
@@ -346,6 +387,24 @@ export async function downloadCache() {
   log('Starting cache download...');
   log(`Processing election year: ${election.year}`);
 
+  // ── Bootstrap ECN session ──
+  try {
+    log('\n🔐 Attempting ECN secure session bootstrap…');
+    await bootstrapEcnSession();
+    ecnAvailable = await isEcnReachable();
+    if (ecnAvailable) {
+      log('✅ ECN secure handler is reachable — will use it for downloads.');
+    } else {
+      log(
+        '⚠️  ECN secure handler not reachable — will use direct URLs as fallback.'
+      );
+    }
+  } catch (err) {
+    log(`⚠️  ECN bootstrap failed: ${(err as Error).message}`);
+    log('   Will use direct URLs as fallback.');
+    ecnAvailable = false;
+  }
+
   try {
     const baseCacheDir = path.join(process.cwd(), 'public', 'cache');
     const yearCacheDir = path.join(baseCacheDir, String(election.year));
@@ -353,13 +412,18 @@ export async function downloadCache() {
 
     await fsPromises.mkdir(yearCacheDir, { recursive: true });
 
-    // Extract filename from the configured candidates URL (e.g., "/cache/2079/ElectionResultCentral2079.txt")
+    // Derive the ECN file path for the candidates result file
     const candidatesFilename = path.basename(election.endpoints.candidates);
+    const candidatesEcnPath = `JSONFiles/${candidatesFilename}`;
     const candidatesPath = path.join(yearCacheDir, candidatesFilename);
 
     if (!(await fileExists(candidatesPath))) {
       if (election.source.candidates) {
-        await downloadCandidates(election.source.candidates, candidatesPath);
+        await downloadCandidates(
+          election.source.candidates,
+          candidatesEcnPath,
+          candidatesPath
+        );
       } else {
         throw new Error(
           `Candidates file not found at ${candidatesPath} and no source URL configured.`
@@ -370,12 +434,19 @@ export async function downloadCache() {
     const size = await humanFileSize(candidatesPath);
     log(`📦 Using candidates data: ${candidatesPath} (${size})`);
 
-    // Step 1: Download district lookup
+    // Step 1: Download district lookup (skip if already cached)
     const districtLookupPath = path.join(yearCacheDir, 'districtLookup.json');
-    await downloadDistrictLookup(
-      election.source.districtLookup,
-      districtLookupPath
-    );
+    const districtLookupEcnPath = `JSONFiles/Election${election.year}/Local/Lookup/districts.json`;
+    if (await fileExists(districtLookupPath)) {
+      const dlSize = await humanFileSize(districtLookupPath);
+      log(`📦 District lookup already cached (${dlSize}), skipping download.`);
+    } else {
+      await downloadDistrictLookup(
+        election.source.districtLookup,
+        districtLookupEcnPath,
+        districtLookupPath
+      );
+    }
 
     // Step 2: Extract symbols metadata
     log('\n📦 Processing symbols...');
