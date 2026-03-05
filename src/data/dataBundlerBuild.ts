@@ -9,14 +9,11 @@
  */
 
 import {
-  fetchProvinces,
-  fetchDistricts,
-  fetchConstituencies,
-} from './api';
-
-import {
   fetchDistrictIdentifiersBuild,
   fetchConstituencyIdentifiersBuild,
+  fetchProvincesBuild,
+  fetchDistrictsBuild,
+  fetchConstituenciesBuild,
 } from './apiBuild';
 
 import type {
@@ -56,7 +53,9 @@ async function getDistrictIdentifiersBuild(): Promise<DistrictIdentifier[]> {
 /**
  * Build-time: Fetch and cache constituency identifiers from disk.
  */
-async function getConstituencyIdentifiersBuild(): Promise<ConstituencyIdentifier[]> {
+async function getConstituencyIdentifiersBuild(): Promise<
+  ConstituencyIdentifier[]
+> {
   if (_constituencyIdentifiers) return _constituencyIdentifiers;
 
   try {
@@ -77,8 +76,8 @@ export async function bundleProvincesBuild(): Promise<Province[]> {
   // Ensure identifiers are available (load from disk)
   const districtIdentifiers = await getDistrictIdentifiersBuild();
 
-  // Fetch raw data from API
-  const rawProvinces = await fetchProvinces();
+  // Fetch raw data (ECN secure handler with direct URL fallback)
+  const rawProvinces = await fetchProvincesBuild();
 
   return rawProvinces.features.map((feature: ProvinceFeature) => {
     const province_id = feature.properties.STATE_C;
@@ -113,7 +112,7 @@ export async function bundleDistrictsBuild(
   // Ensure identifiers are available (load from disk)
   const constituencyIdentifiers = await getConstituencyIdentifiersBuild();
 
-  const rawDistricts = await fetchDistricts(province_id);
+  const rawDistricts = await fetchDistrictsBuild(province_id);
   return rawDistricts.features.map((feature: DistrictFeature) => {
     const district_id = feature.properties.DCODE;
     const district_name = feature.properties.DISTRICT_N;
@@ -147,7 +146,7 @@ export async function bundleConstituenciesBuild(
   district_id: number,
   district_name?: string
 ): Promise<Constituency[]> {
-  const rawConstituencies = await fetchConstituencies(district_id);
+  const rawConstituencies = await fetchConstituenciesBuild(district_id);
 
   return rawConstituencies.map((feature: ConstituencyFeature) => {
     const district_id_local = feature.properties.DCODE;
