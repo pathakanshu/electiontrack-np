@@ -19,7 +19,7 @@ import type { DistrictIdentifier } from '../../types/election';
 // Types
 // ---------------------------------------------------------------------------
 
-import { getCurrentElection } from '../../config/elections';
+import type { ElectionConfig } from '../../config/elections';
 import { highlightConstituencies, clearHighlights } from '../../map/maprender';
 import colorMapping from '../../config/colorMapping.json';
 
@@ -31,6 +31,14 @@ interface SidebarProps {
   /** National PR party vote totals — empty array when PR data is unavailable. */
   prParties: PRPartyAggregate[];
   map: any;
+  /**
+   * Snapshot of the active election config, captured in the parent at a
+   * stable point (mount-time of AppContent). Passed as a prop so the
+   * Sidebar never reads the mutable global `getCurrentElection()` which
+   * can temporarily point at a *different* election while
+   * useStatisticsData fetches previous-election data.
+   */
+  election: ElectionConfig;
 }
 
 export interface SidebarRef {
@@ -492,11 +500,10 @@ const LeaderboardSection: React.FC<{
   prParties: PRPartyAggregate[];
   leadingCandidates: Candidate[];
   map: any;
-}> = ({ topFive, prParties, leadingCandidates, map }) => {
-  // Read hasPR directly from the active election config on every render
-  // rather than receiving it as a prop — this guarantees we always reflect
-  // the latest election even across remounts triggered by election switches.
-  const hasPR = !!getCurrentElection().hasPR;
+  /** Whether this election supports a PR view — passed from the parent's
+   *  stable election snapshot so we never read the mutable global. */
+  hasPR: boolean;
+}> = ({ topFive, prParties, leadingCandidates, map, hasPR }) => {
   const { locale } = useLanguage();
   const { t } = useTranslation();
   const [showPR, setShowPR] = useState(false);
@@ -722,13 +729,12 @@ const LeaderboardSection: React.FC<{
 };
 
 const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
-  ({ stats, candidates, leadingCandidates, prParties, map }, ref) => {
-    const currentElection = getCurrentElection();
+  ({ stats, candidates, leadingCandidates, prParties, map, election }, ref) => {
     const { locale } = useLanguage();
     const { t } = useTranslation();
 
     // ---- Incomplete Data Warning ----
-    const DataWarning = currentElection.missingData ? (
+    const DataWarning = election.missingData ? (
       <div
         className="data-warning-banner"
         style={{
@@ -1063,14 +1069,15 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
         </div>
 
         {/* Leaderboard Section — with inline FPTP ↔ PR toggle.
-            key={currentElection.id} forces a full remount when the election
+            key={election.id} forces a full remount when the election
             changes, resetting the local showPR state back to false. */}
         <LeaderboardSection
-          key={currentElection.id}
+          key={election.id}
           topFive={topFive}
           prParties={prParties}
           leadingCandidates={leadingCandidates}
           map={map}
+          hasPR={!!election.hasPR}
         />
       </aside>
     );

@@ -12,6 +12,7 @@ import {
   setActiveElection,
   DEFAULT_ELECTION_ID,
   getCurrentElection,
+  type ElectionConfig,
 } from './config/elections';
 
 import { invalidateCache } from './data/dataBundler';
@@ -270,6 +271,15 @@ const AppContent: React.FC<{
 }> = ({ isStatsPage, sidebarRef, mapInstance, setMapInstance, refreshKey }) => {
   const { t } = useTranslation();
 
+  // Capture the election config once at mount-time. Because AppContent is
+  // keyed by `dataKey` (bumped on every election switch), this ref always
+  // holds the config for the *intended* election. Reading it from a ref
+  // instead of calling getCurrentElection() on every render avoids the race
+  // condition where useStatisticsData temporarily switches the global active
+  // election to fetch previous-election data (e.g. 2074 while viewing 2079).
+  const electionRef = React.useRef<ElectionConfig>(getCurrentElection());
+  const election = electionRef.current;
+
   const {
     candidates,
     leadingCandidates,
@@ -288,102 +298,86 @@ const AppContent: React.FC<{
   const isLoading = dataLoading || topoLoading;
   const hasError = dataError || topoError;
 
-  // ── Error state ──
-  if (hasError && !isStatsPage) {
-    return (
-      <>
-        <div style={{ padding: '2rem', gridArea: 'map', color: '#ca0001' }}>
-          <h2>{t('error_title')}</h2>
-          <p>{dataError?.message || topoError?.message}</p>
-        </div>
-        <Sidebar
-          ref={sidebarRef}
-          stats={stats}
-          candidates={candidates}
-          leadingCandidates={leadingCandidates}
-          prParties={prParties}
-          map={null}
-        />
-      </>
-    );
-  }
+  // Determine which "left-side" content to show — error, loading, stats, or map.
+  // Sidebar is rendered once, always at the same position in the fragment,
+  // so React preserves it (and all its child state, e.g. PR toggle) across
+  // loading → loaded transitions instead of unmounting/remounting.
+  const showMap = !isStatsPage && !isLoading && !hasError;
 
-  // ── Loading state (home page only — stats page has its own loader) ──
-  if (isLoading && !isStatsPage) {
-    return (
-      <>
-        <div style={{ padding: '2rem', gridArea: 'map' }}>
-          <div
+  // Sidebar only gets the live map reference when the map is actually rendered;
+  // otherwise null so it doesn't try to call methods on a stale/missing map.
+  const sidebarMap = showMap ? mapInstance : null;
+
+  // ── Left-side content area (position 0 in fragment) ──
+  let leftContent: React.ReactNode;
+
+  if (hasError && !isStatsPage) {
+    leftContent = (
+      <div style={{ padding: '2rem', gridArea: 'map', color: '#ca0001' }}>
+        <h2>{t('error_title')}</h2>
+        <p>{dataError?.message || topoError?.message}</p>
+      </div>
+    );
+  } else if (isLoading && !isStatsPage) {
+    leftContent = (
+      <div style={{ padding: '2rem', gridArea: 'map' }}>
+        <div
+          style={{
+            background: '#f9f9f7',
+            border: '1px solid #e0e0dc',
+            padding: '1.5rem 2rem',
+          }}
+        >
+          <h2
             style={{
-              background: '#f9f9f7',
-              border: '1px solid #e0e0dc',
-              padding: '1.5rem 2rem',
+              fontFamily:
+                "var(--font-heading, 'Instrument Serif', Georgia, serif)",
+              fontWeight: 400,
+              margin: '0 0 0.25rem',
             }}
           >
-            <h2
-              style={{
-                fontFamily:
-                  "var(--font-heading, 'Instrument Serif', Georgia, serif)",
-                fontWeight: 400,
-                margin: '0 0 0.25rem',
-              }}
-            >
-              {t('loading_title')}
-            </h2>
-            <p style={{ color: '#999', fontSize: '0.85rem', margin: 0 }}>
-              {t('loading_description')}
-            </p>
-          </div>
+            {t('loading_title')}
+          </h2>
+          <p style={{ color: '#999', fontSize: '0.85rem', margin: 0 }}>
+            {t('loading_description')}
+          </p>
         </div>
-        <Sidebar
-          ref={sidebarRef}
-          stats={stats}
-          candidates={candidates}
-          leadingCandidates={leadingCandidates}
-          prParties={prParties}
-          map={null}
-        />
-      </>
+      </div>
     );
-  }
-
-  // ── Stats page ──
-  if (isStatsPage) {
-    return (
-      <>
-        <div className="stats-page-wrapper">
-          <StatisticsPage refreshKey={refreshKey} />
-        </div>
-        <Sidebar
-          ref={sidebarRef}
-          stats={stats}
-          candidates={candidates}
-          leadingCandidates={leadingCandidates}
-          prParties={prParties}
-          map={null}
-        />
-      </>
+  } else if (isStatsPage) {
+    leftContent = (
+      <div className="stats-page-wrapper">
+        <StatisticsPage refreshKey={refreshKey} />
+      </div>
     );
-  }
-
-  // ── Home page (map + sidebar) ──
-  return (
-    <>
-      <Sidebar
-        ref={sidebarRef}
-        stats={stats}
-        candidates={candidates}
-        leadingCandidates={leadingCandidates}
-        prParties={prParties}
-        map={mapInstance}
-      />
-
+  } else {
+    leftContent = (
       <ElectionMap
         provinces={topology?.provinces || []}
         constituencies={topology?.constituencies || []}
         leadingCandidates={leadingCandidates}
         onMapLoaded={setMapInstance}
         onConstituencyClick={(id) => sidebarRef.current?.addOrMoveToTop(id)}
+      />
+    );
+  }
+
+  return (
+    <>
+      {/* Position 0: left-side content (swaps between error/loading/stats/map) */}
+      {leftContent}
+
+      {/* Position 1: sidebar — always at the same fragment index so React
+          never unmounts it during loading↔loaded transitions. This preserves
+          LeaderboardSection state (including the PR toggle) across switches. */}
+      <Sidebar
+        ref={sidebarRef}
+        stats={stats}
+        candidates={candidates}
+        leadingCandidates={leadingCandidates}
+        prParties={prParties}
+        map={sidebarMap}
+        election={election}
       />
     </>
   );
