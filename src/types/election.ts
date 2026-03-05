@@ -138,6 +138,7 @@ export type Candidate = {
   experience: string;
   qualification: string;
   party: string;
+  party_en: string | null;
   symbol_id: number;
   votes: number;
   elected: boolean | null;
@@ -155,10 +156,10 @@ export type CandidateIdentifier = {
   StateName: string;
   PoliticalPartyName: string;
   ElectionPost: string | null;
-  DistrictCd: number;
+  DistrictCd: number | string;
   DistrictName: string;
   State: number;
-  SCConstID: string;
+  SCConstID: string | number;
   CenterConstID: number | null;
   SerialNo: number;
   TotalVoteReceived: number;
@@ -168,7 +169,7 @@ export type CandidateIdentifier = {
   Remarks: string | null;
   Samudaya: string | null;
   DOB: string;
-  CTZDIST: string;
+  CTZDIST: string | number;
   FATHER_NAME: string;
   SPOUCE_NAME: string;
   QUALIFICATION: string;
@@ -176,6 +177,28 @@ export type CandidateIdentifier = {
   OTHERDETAILS: string;
   NAMEOFINST: string;
   ADDRESS: string;
+
+  // ── 2082-specific key variants ──────────────────────────────────────
+  // The 2082 Election Commission data uses different field names for
+  // several columns. These are optional because they only appear in
+  // that year's payload. bundleCandidates() falls back to 2079 keys
+  // when these are absent.
+
+  /** Age — 2082 uses AGE_YR instead of Age */
+  AGE_YR?: number;
+  /** District ID — 2082 duplicates CTZDIST (first as number, then as
+   *  string). JSON.parse keeps the last (string) value, so the numeric
+   *  district ID is lost. We resolve it via DistrictName lookup. */
+  /** Province — 2082 uses STATE_ID instead of State */
+  STATE_ID?: number;
+  /** Symbol ID — 2082 uses SYMBOLCODE instead of SymbolID */
+  SYMBOLCODE?: number;
+  /** Elected status — 2082 uses E_STATUS instead of Remarks */
+  E_STATUS?: string | null;
+  /** Rank — 2082 uses R instead of Rank */
+  R?: number;
+  /** Constituency name — 2082 includes ConstName */
+  ConstName?: number | string;
 };
 
 export type leadingEntities = {
