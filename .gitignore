@@ -1,6 +1,9 @@
 # macOS
 .DS_Store
 
+# Cloudflare Wrangler local state
+.wrangler/
+
 # Python / uv
 __pycache__/
 *.py[cod]

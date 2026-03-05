@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "electiontrack-np",
+  "main": "src/worker.ts",
   "compatibility_date": "2025-09-27",
   "workers_dev": true,
   "preview_urls": false,
@@ -10,5 +11,16 @@
   "assets": {
     "not_found_handling": "single-page-application",
     "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/cache/2082/*"],
+  },
+  "kv_namespaces": [
+    {
+      "binding": "ELECTION_DATA",
+      "id": "ed206e04e9444585aa8a9b04677645fd",
+    },
+  ],
+  "triggers": {
+    "crons": ["* * * * *"],
   },
 }
