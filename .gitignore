@@ -1,6 +1,12 @@
 # macOS
 .DS_Store
 
+# Python / uv
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
 # Project specific
 public/data/*
 playground
