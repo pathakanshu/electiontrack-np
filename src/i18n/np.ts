@@ -47,7 +47,7 @@ const np: UiStrings = {
   votes_label: 'मत',
 
   // -- Sidebar: Leaderboard --
-  leaderboard_title: 'लिडरबोर्ड (शीर्ष ५)',
+  leaderboard_title: 'लिडरबोर्ड',
   leaderboard_counting: 'मत गणना जारी...',
 
   leaderboard_won: 'जित',
@@ -292,7 +292,7 @@ const np: UiStrings = {
   mode_toggle_aria: 'प्रत्यक्ष र समानुपातिक नतिजा बीच स्विच गर्नुहोस्',
 
   // PR Leaderboard
-  leaderboard_pr_title: 'समानुपातिक मत (शीर्ष ५)',
+  leaderboard_pr_title: 'समानुपातिक मत (>१%)',
   leaderboard_pr_votes: 'मत',
   leaderboard_pr_no_data: 'यस निर्वाचनको लागि समानुपातिक तथ्याङ्क उपलब्ध छैन।',
 

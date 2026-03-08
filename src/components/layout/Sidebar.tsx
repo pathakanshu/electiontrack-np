@@ -447,6 +447,9 @@ const WatchlistItem: React.FC<{
                       {c.party?.slice(0, 2) || '??'}
                     </div>
                   )}
+                  {c.elected && (
+                    <span className="watchlist-symbol-elected">Elected</span>
+                  )}
                   <span className="watchlist-symbol-votes">
                     {c.votes.toLocaleString()}
                   </span>
@@ -496,14 +499,14 @@ function resolveDistrictName(
 // ---------------------------------------------------------------------------
 
 const LeaderboardSection: React.FC<{
-  topFive: [string, { won: number; leading: number }][];
+  allParties: [string, { won: number; leading: number }][];
   prParties: PRPartyAggregate[];
   leadingCandidates: Candidate[];
   map: any;
   /** Whether this election supports a PR view — passed from the parent's
    *  stable election snapshot so we never read the mutable global. */
   hasPR: boolean;
-}> = ({ topFive, prParties, leadingCandidates, map, hasPR }) => {
+}> = ({ allParties, prParties, leadingCandidates, map, hasPR }) => {
   const { locale } = useLanguage();
   const { t } = useTranslation();
   const [showPR, setShowPR] = useState(false);
@@ -565,10 +568,25 @@ const LeaderboardSection: React.FC<{
           )}
         </div>
 
+        {isPR && (
+          <p
+            style={{
+              fontSize: '0.65rem',
+              color: '#888',
+              margin: '0.15rem 0 0.35rem',
+              fontFamily: 'var(--font-body)',
+            }}
+          >
+            {locale === 'np'
+              ? 'सिट हिस्सा ३% पीआर थ्रेसहोल्डका कारण फरक हुन सक्छ।'
+              : 'Seat share may differ due to the 3% PR threshold.'}
+          </p>
+        )}
+
         {isPR ? (
           /* ── PR view: party vote totals with percentage ── */
           prParties.length > 0 ? (
-            <div key="pr">
+            <div key="pr" className="leaderboard-view">
               <div
                 className="leaderboard-header"
                 style={{
@@ -585,46 +603,51 @@ const LeaderboardSection: React.FC<{
                   {t('leaderboard_pr_votes' as any)}
                 </span>
               </div>
-              <ul className="index-list">
-                {prParties.slice(0, 5).map((entry) => {
-                  const dotColor =
-                    (colorMapping.parties as any)[entry.party] ||
-                    colorMapping.others;
-                  const displayName = getNameFromFields(
-                    entry.party_en,
-                    entry.party,
-                    locale
-                  );
-                  const pct =
-                    totalPRVotes > 0
-                      ? ((entry.votes / totalPRVotes) * 100).toFixed(1)
-                      : '0.0';
+              <ul className="index-list leaderboard-scroll">
+                {prParties
+                  .filter(
+                    (entry) =>
+                      totalPRVotes > 0 && (entry.votes / totalPRVotes) * 100 > 1
+                  )
+                  .map((entry) => {
+                    const dotColor =
+                      (colorMapping.parties as any)[entry.party] ||
+                      colorMapping.others;
+                    const displayName = getNameFromFields(
+                      entry.party_en,
+                      entry.party,
+                      locale
+                    );
+                    const pct =
+                      totalPRVotes > 0
+                        ? ((entry.votes / totalPRVotes) * 100).toFixed(1)
+                        : '0.0';
 
-                  return (
-                    <li key={entry.party_id} className="index-item">
-                      <span className="rank">
+                    return (
+                      <li key={entry.party_id} className="index-item">
+                        <span className="rank">
+                          <span
+                            className="rank-dot"
+                            style={{ backgroundColor: dotColor }}
+                            title={displayName}
+                          />
+                        </span>
                         <span
-                          className="rank-dot"
-                          style={{ backgroundColor: dotColor }}
-                          title={displayName}
-                        />
-                      </span>
-                      <span
-                        className="party-name"
-                        title={`${displayName} — ${entry.votes.toLocaleString()} (${pct}%)`}
-                      >
-                        {displayName}
-                      </span>
-                      <span
-                        className="seat-count pr-votes"
-                        title={entry.votes.toLocaleString()}
-                      >
-                        {entry.votes.toLocaleString()}
-                        <span className="pr-pct"> ({pct}%)</span>
-                      </span>
-                    </li>
-                  );
-                })}
+                          className="party-name"
+                          title={`${displayName} — ${entry.votes.toLocaleString()} (${pct}%)`}
+                        >
+                          {displayName}
+                        </span>
+                        <span
+                          className="seat-count pr-votes"
+                          title={entry.votes.toLocaleString()}
+                        >
+                          {entry.votes.toLocaleString()}
+                          <span className="pr-pct"> ({pct}%)</span>
+                        </span>
+                      </li>
+                    );
+                  })}
               </ul>
             </div>
           ) : (
@@ -633,8 +656,8 @@ const LeaderboardSection: React.FC<{
             </p>
           )
         ) : /* ── FPTP view: seat counts (won / leading) ── */
-        topFive.length > 0 ? (
-          <div key="fptp">
+        allParties.length > 0 ? (
+          <div key="fptp" className="leaderboard-view">
             <div
               className="leaderboard-header"
               style={{
@@ -654,8 +677,8 @@ const LeaderboardSection: React.FC<{
                 {t('leaderboard_lead' as any)}
               </span>
             </div>
-            <ul className="index-list">
-              {topFive.map(([party, counts]) => {
+            <ul className="index-list leaderboard-scroll">
+              {allParties.map(([party, counts]) => {
                 const pc =
                   (colorMapping.parties as any)[party] || colorMapping.others;
                 const sample = leadingCandidates.find((c) => c.party === party);
@@ -758,7 +781,7 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
       const totalB = b.won + b.leading;
       return totalB - totalA;
     });
-    const topFive = sortedParties.slice(0, 5);
+    const allParties = sortedParties;
 
     // ---- District name map (Nepali names from API, keyed by id) ----
     const [districtNamesNp, setDistrictNamesNp] = useState<
@@ -1073,7 +1096,7 @@ const Sidebar = React.forwardRef<SidebarRef, SidebarProps>(
             changes, resetting the local showPR state back to false. */}
         <LeaderboardSection
           key={election.id}
-          topFive={topFive}
+          allParties={allParties}
           prParties={prParties}
           leadingCandidates={leadingCandidates}
           map={map}

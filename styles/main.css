@@ -706,6 +706,10 @@ html[data-pr-mode] #map {
 .watchlist-section {
   flex: 2;
   padding: 0.45rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .watchlist-section h2 {
@@ -717,6 +721,30 @@ html[data-pr-mode] #map {
 
 .leaderboard-section {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.leaderboard-section .parties-index {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.leaderboard-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.leaderboard-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 /* ── Search Bar ────────────────────────────────────────────────────────── */
@@ -880,7 +908,7 @@ html[data-pr-mode] #map {
   color: var(--color-negative);
 }
 
-watchlist-scroll-container {
+.watchlist-scroll-container {
   flex: 1;
   overflow-y: auto;
   margin-top: 0.3rem;
@@ -1070,6 +1098,13 @@ watchlist-scroll-container {
   background-color: var(--color-surface);
   padding: 0.1rem;
   border: 1px solid var(--color-border);
+}
+
+.watchlist-symbol-elected {
+  font-size: 0.65rem;
+  color: #16a34a;
+  font-weight: 700;
+  font-family: var(--font-body);
 }
 
 .watchlist-symbol-votes {
@@ -1636,6 +1671,10 @@ html[data-theme='dark']
   /* ── Leaderboard: let it expand naturally ── */
   .leaderboard-section {
     flex: none;
+  }
+
+  .leaderboard-scroll {
+    max-height: 60vh;
   }
 
   /* ── Search bar dropdown: constrain to avoid overflow ── */

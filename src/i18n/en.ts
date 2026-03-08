@@ -46,7 +46,7 @@ const en: Record<string, string> = {
   votes_label: 'votes',
 
   // -- Sidebar: Leaderboard --
-  leaderboard_title: 'Leaderboard (Top 5)',
+  leaderboard_title: 'Leaderboard',
   leaderboard_counting: 'Counting in progress...',
   leaderboard_won: 'Won',
   leaderboard_lead: 'Leading',
@@ -294,7 +294,7 @@ const en: Record<string, string> = {
   mode_toggle_aria: 'Switch between FPTP and PR results',
 
   // PR Leaderboard
-  leaderboard_pr_title: 'PR Votes (Top 5)',
+  leaderboard_pr_title: 'PR Votes (>1%)',
   leaderboard_pr_votes: 'Votes',
   leaderboard_pr_no_data: 'No PR data available for this election.',
 
