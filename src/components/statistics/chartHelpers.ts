@@ -157,7 +157,7 @@ export const formatSigned = (v: number) =>
 
 /** Format vote counts in a human-friendly way */
 export function formatVotes(n: number): string {
-  if (n >= 1_000_000) return d3.format('.2~s')(n);
+  if (n >= 1_000_000) return d3.format('.4~s')(n);
   if (n >= 10_000) return d3.format('.3~s')(n);
   return formatNumber(n);
 }
