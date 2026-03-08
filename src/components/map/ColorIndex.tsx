@@ -38,6 +38,14 @@ const ColorIndex: React.FC<ColorIndexProps> = ({ leadingCandidates, map }) => {
     ).filter(([name]) => presentParties.has(name));
   }, [leadingCandidates]);
 
+  // Check if any leading candidate's party is NOT in colorMapping.parties
+  const hasOthers = useMemo(() => {
+    const knownParties = new Set(
+      Object.keys(colorMapping.parties as Record<string, string>)
+    );
+    return leadingCandidates.some((c) => !knownParties.has(c.party));
+  }, [leadingCandidates]);
+
   const enterParty = (party: string) => {
     if (!map) return;
     const ids = new Set(
@@ -80,6 +88,17 @@ const ColorIndex: React.FC<ColorIndexProps> = ({ leadingCandidates, map }) => {
                   </span>
                 </li>
               ))}
+              {hasOthers && (
+                <li key="__others" className="color-index-item">
+                  <span
+                    className="color-index-swatch"
+                    style={{ backgroundColor: colorMapping.others }}
+                  />
+                  <span className="color-index-name">
+                    {locale === 'np' ? 'अन्य' : 'Others'}
+                  </span>
+                </li>
+              )}
             </ul>
           )}
         </div>

@@ -14,6 +14,7 @@
 
 import React, { useMemo, useState } from 'react';
 import useStatisticsData from '../../hooks/useStatisticsData';
+import { getCurrentElection } from '../../config/elections';
 import { useLanguage, useTranslation } from '../../i18n';
 import { getNameFromFields } from '../../i18n/getName';
 import { getEducationLabel, getGenderLabel } from '../../utils/statistics';
@@ -194,6 +195,22 @@ const StatisticsPage: React.FC<{ refreshKey?: number }> = ({
           &middot; <strong>{formatVotes(summary.totalVotes)}</strong>{' '}
           {tt('stats_subtitle_votes')}
         </p>
+
+        {getCurrentElection().isCurrent && (
+          <p
+            style={{
+              fontSize: '0.8rem',
+              color: '#e0a800',
+              margin: '0.5rem 0 0',
+              fontFamily: 'var(--font-body)',
+              fontStyle: 'italic',
+            }}
+          >
+            {locale === 'np'
+              ? '⚠ मतगणना जारी छ — तलका तथ्याङ्कहरू अहिलेसम्म उपलब्ध डाटामा आधारित छन् र परिवर्तन हुन सक्छन्।'
+              : '⚠ Counting is ongoing — statistics below are based on data available so far and may change.'}
+          </p>
+        )}
 
         <nav className="stats-page__nav" aria-label="Statistics sections">
           {SECTION_IDS.map((id) => (

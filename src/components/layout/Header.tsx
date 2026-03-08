@@ -113,8 +113,8 @@ const Header: React.FC<HeaderProps> = ({
               <span className="heading-bar__monitoring">
                 {' · '}
                 {locale === 'np'
-                  ? 'परिवर्तनहरू हरेक १५ सेकेन्डमा अनुगमन गरिन्छ'
-                  : 'changes are monitored every 15 seconds'}
+                  ? 'परिवर्तनहरू लगभग हरेक ५ मिनेटमा अनुगमन गरिन्छ'
+                  : 'changes are monitored every ~ 5 minutes'}
               </span>
             )}
           </div>
