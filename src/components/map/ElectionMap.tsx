@@ -4,6 +4,7 @@ import { Map as MapLibreMap, Popup } from 'maplibre-gl';
 import {
   createMap,
   addProvincesLayer,
+  addProvinceBordersLayer,
   addConstituencyLayer,
   colorConstituenciesByVotes,
 } from '../../map/maprender';
@@ -195,6 +196,10 @@ const ElectionMap: React.FC<ElectionMapProps> = ({
       // Add Constituency boundaries
       if (constituencies.length > 0 && !map.getSource('constituencies')) {
         addConstituencyLayer(map, constituencies);
+      }
+      // Add Province borders ON TOP of constituencies so they're visible
+      if (map.getSource('provinces') && !map.getLayer('provinces-border')) {
+        addProvinceBordersLayer(map);
       }
     };
 

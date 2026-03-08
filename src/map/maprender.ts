@@ -20,6 +20,7 @@ const MAP_COLORS = {
   light: {
     background: '#ffffff',
     border: '#ffffff',
+    provinceBorder: '#ffffff',
     provinceFill: '#a0a0a0',
     districtFill: '#a0a0a0',
     constituencyFill: '#9a9a9a',
@@ -27,6 +28,7 @@ const MAP_COLORS = {
   dark: {
     background: '#141414',
     border: '#222222',
+    provinceBorder: '#141414',
     provinceFill: '#3a3a3a',
     districtFill: '#3a3a3a',
     constituencyFill: '#333333',
@@ -42,7 +44,7 @@ function mapColors() {
 }
 
 const province_fill_opacity = 0;
-const province_border_width = 2;
+const province_border_width = 1.25;
 const province_border_opacity = 1;
 
 // district is not used in HOR elections
@@ -185,7 +187,11 @@ export function updateMapTheme(map: Map): void {
     map.setPaintProperty('provinces-fill', 'fill-color', colors.provinceFill);
   }
   if (map.getLayer('provinces-border')) {
-    map.setPaintProperty('provinces-border', 'line-color', colors.border);
+    map.setPaintProperty(
+      'provinces-border',
+      'line-color',
+      colors.provinceBorder
+    );
   }
 
   // Districts
@@ -236,13 +242,21 @@ export function addProvincesLayer(map: Map, provinces: Province[]) {
       'fill-opacity': province_fill_opacity,
     },
   });
+}
 
+/**
+ * Add province border lines. Call this AFTER constituency layers so the
+ * borders render on top and aren't hidden beneath constituency fills.
+ */
+export function addProvinceBordersLayer(map: Map) {
+  if (!map.getSource('provinces')) return;
+  const colors = mapColors();
   map.addLayer({
     id: 'provinces-border',
     type: 'line',
     source: 'provinces',
     paint: {
-      'line-color': colors.border,
+      'line-color': colors.provinceBorder,
       'line-width': province_border_width,
       'line-opacity': province_border_opacity,
     },
@@ -447,23 +461,33 @@ export async function colorConstituenciesByVotes(
   map: Map,
   leadingCandidates: Candidate[]
 ) {
-  // Clear every constituency's color first so that constituencies whose
-  // leader dropped to 0 votes (or disappeared from the data) revert to
-  // the default grey instead of keeping a stale party color.
-  for (const id of _allConstituencyIds) {
-    clearConstituencyColor(map, id);
-  }
-
+  // Load color mapping BEFORE touching the map so there's no gap between
+  // clearing stale colors and painting new ones (the dynamic import
+  // resolves on the next microtask — even when cached — which gave
+  // MapLibre a frame to render a fully grey map).
   const colorMapping: colorMapping =
     await import('../config/colorMapping.json');
 
-  if (colorMapping) {
-    for (const candidate of leadingCandidates) {
-      let color = colorMapping.parties[candidate.party];
-      if (!color) {
-        color = colorMapping.others;
-      }
-      setConstituencyColor(map, candidate.constituency_id, color);
+  if (!colorMapping) return;
+
+  // Paint new colors first, tracking which IDs we touched.
+  const painted = new Set<number>();
+
+  for (const candidate of leadingCandidates) {
+    let color = colorMapping.parties[candidate.party];
+    if (!color) {
+      color = colorMapping.others;
+    }
+    setConstituencyColor(map, candidate.constituency_id, color);
+    painted.add(candidate.constituency_id);
+  }
+
+  // Only THEN clear constituencies that are no longer in the data.
+  // This avoids the flash-of-grey: stale colors are removed after new
+  // ones are already in place.
+  for (const id of _allConstituencyIds) {
+    if (!painted.has(id)) {
+      clearConstituencyColor(map, id);
     }
   }
 }
