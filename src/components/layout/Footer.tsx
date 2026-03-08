@@ -15,6 +15,14 @@ const Footer: React.FC = () => {
         >
           GitHub
         </a>
+        {' · '}
+        <a
+          href="https://linktr.ee/pathakanshu"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Linktree
+        </a>
       </small>
       <small className="footer-copyright">© 2026 Anshu Pathak</small>
     </footer>
