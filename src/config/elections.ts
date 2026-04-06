@@ -169,7 +169,7 @@ export const ELECTIONS: Record<string, ElectionConfig> = {
     name: '2082 General Election',
     nameNp: '२०८२ आम निर्वाचन',
     year: 2082,
-    isCurrent: true,
+    isCurrent: false,
     hasPR: true,
     endpoints: {
       provinces:

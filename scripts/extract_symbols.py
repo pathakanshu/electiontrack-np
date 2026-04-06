@@ -12,7 +12,6 @@ from pathlib import Path
 
 import aiohttp
 from playwright.async_api import async_playwright
-import playwright
 
 
 # Configuration

@@ -5,7 +5,7 @@ import {
   bundlePRNational,
 } from '../data/dataBundler';
 import { Candidate, PRPartyAggregate } from '../types/election';
-
+/* FIX: PR doesn't refresh on it's own on update, tooltip hover says leading when elected*/
 /**
  * Custom hook to fetch and process election data.
  * It provides candidate data, leading candidates per constituency,

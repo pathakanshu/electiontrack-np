@@ -825,12 +825,26 @@ async function fetchConstituenciesIncremental(
  *
  * On the paid plan there are no KV read/write limits to worry about.
  */
-async function fetchAndMergeCandidates(env: Env): Promise<void> {
+async function fetchAndMergeCandidates(
+  env: Env,
+  targetOnly?: string
+): Promise<void> {
   // Step 1: Get constituency list
-  const constituencies = await getConstituencyList(env);
+  let constituencies = await getConstituencyList(env);
   if (!constituencies) {
     console.error('[cron] Cannot proceed without constituency list');
     return;
+  }
+
+  const allConstituencies = constituencies;
+
+  // Filter if restricted to a specific constituency (e.g., Dhanusha-1)
+  if (targetOnly) {
+    const [dId, cId] = targetOnly.split('-').map((s) => parseInt(s, 10));
+    constituencies = constituencies.filter(
+      (c) => c.distId === dId && c.consts === cId
+    );
+    console.log(`[cron] Target restriction: ${targetOnly} only`);
   }
 
   // Step 2: Load the combined per-constituency blob — 1 KV read
@@ -897,11 +911,11 @@ async function fetchAndMergeCandidates(env: Env): Promise<void> {
   await env.ELECTION_DATA.put(CONST_BLOB_KV_KEY, JSON.stringify(blob));
 
   // Step 5: Assemble final candidates from per-constituency data only
+  // Use allConstituencies to ensure we don't wipe the list when targetOnly is set
   const allCandidates: unknown[] = [];
   let covered = 0;
-  let missing = 0;
 
-  for (const c of constituencies) {
+  for (const c of allConstituencies) {
     const key = `${c.distId}-${c.consts}`;
     const data = blob.constData[key];
 
@@ -1074,13 +1088,13 @@ async function handleScheduled(env: Env): Promise<void> {
   await writeRunStatus(env, {
     state: 'running',
     startedAt,
-    detail: 'Fetching per-constituency data + PR source…',
+    detail: 'Fetching Dhanusha-1 + PR source…',
   });
 
-  // Fetch candidates (per-constituency) and simple sources in parallel.
+  // Fetch candidates (Dhanusha-1 only) and simple sources in parallel.
   // Each handles its own errors internally and never throws.
   const results = await Promise.allSettled([
-    fetchAndMergeCandidates(env),
+    fetchAndMergeCandidates(env, '20-1'),
     fetchSimpleSources(env),
   ]);
 
@@ -1220,6 +1234,8 @@ async function handleStatus(env: Env): Promise<Response> {
       batchDelayMs: BATCH_DELAY_MS,
       maxFetchesPerRun: MAX_FETCHES_PER_RUN,
       freshnessThresholdMs: FRESHNESS_THRESHOLD_MS,
+      targetRestriction: '20-1 (Dhanusha-1)',
+      allowRegression: true,
     },
   };
 
@@ -1440,7 +1456,9 @@ function render(d) {
     '<div class="cfg-item">Batch size: <b>' + cfg.batchSize + '</b></div>' +
     '<div class="cfg-item">Batch delay: <b>' + cfg.batchDelayMs + 'ms</b></div>' +
     '<div class="cfg-item">Max fetches/run: <b>' + cfg.maxFetchesPerRun + '</b></div>' +
-    '<div class="cfg-item">Freshness: <b>' + (cfg.freshnessThresholdMs/1000) + 's</b></div>';
+    '<div class="cfg-item">Freshness: <b>' + (cfg.freshnessThresholdMs/1000) + 's</b></div>' +
+    '<div class="cfg-item">Target: <b style="color:#facc15">' + (cfg.targetRestriction || 'All') + '</b></div>' +
+    '<div class="cfg-item">Regression: <b style="color:#4ade80">' + (cfg.allowRegression ? 'Allowed' : 'Blocked') + '</b></div>';
 
   // Timing
   $('timingStats').innerHTML =
